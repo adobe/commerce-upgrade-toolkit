@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "roles": {
+    "commerce-upgrade-analyst": ["(?:\\.claude|\\.github)/context/[^/]+\\.(?:md|json|toon)", "(?:\\.claude|\\.github)/reports/[^/]+\\.(?:html|md)", "output/(?:[^/]+/)*[^/]+\\.html", "\\.ccua/review/[^/]+\\.(?:json|before|after|txt|diff)"],
+    "commerce-upgrade-researcher": [],
+    "commerce-architect": [],
+    "commerce-frontend-developer": [],
+    "commerce-security-reviewer": [],
+    "commerce-developer": ["app/code/[^/]+/[^/]+/(?!Test/).+\\.(?:php|phtml|xml|graphqls|json)"],
+    "commerce-qa-engineer": ["app/code/[^/]+/[^/]+/Test/.+\\.(?:php|xml|json)", "dev/tests/.+\\.(?:php|xml|json)"],
+    "commerce-devops-engineer": ["\\.magento\\.(?:app|env)\\.yaml", "\\.magento/(?:services|routes)\\.yaml", "\\.github/workflows/[^/]+\\.ya?ml", "\\.gitlab-ci\\.yml", "bitbucket-pipelines\\.yml"],
+    "commerce-documentation-engineer": ["(?:\\.claude|\\.github)/reports/[^/]+\\.(?:html|md)", "(?:\\.claude|\\.github)/context/[^/]+\\.md", "output/(?:[^/]+/)*[^/]+\\.html", "docs/(?:[^/]+/)*[^/]+\\.md"],
+    "orchestrator": ["(?:\\.claude|\\.github)/context/[^/]+\\.(?:md|json|toon)", "(?:\\.claude|\\.github)/reports/[^/]+\\.(?:html|md)", "output/(?:[^/]+/)*[^/]+\\.html", "\\.ccua/review/[^/]+\\.(?:json|before|after|txt|diff)"]
+  },
+  "commandEffects": ["composer\\.json", "composer\\.lock", "app/etc/config\\.php"],
+  "denied": [
+    "vendor(?:/.*)?",
+    "(?:.*/)?env\\.php",
+    "(?:.*/)?auth\\.json",
+    "(?:.*/)?\\.env(?:\\..*)?",
+    "(?:.*/)?[^/]*\\.(?:pem|key|p12|pfx|jks|keystore)",
+    "(?:.*/)?(?:id_rsa|id_dsa|id_ecdsa|id_ed25519)(?:\\..*)?",
+    "(?:.*/)?(?:secrets?|credentials?)(?:/.*|\\.[^/]*)?",
+    "(?:.*/)?\\.(?:ssh|aws)(?:/.*)?"
+  ],
+  "restricted": [
+    "(?:\\.magento.*|\\.github/workflows/.*|\\.gitlab-ci\\.yml|bitbucket-pipelines\\.yml)",
+    "(?:composer\\.(?:json|lock)|app/etc/config\\.php)",
+    "app/code/.+/etc/.*",
+    ".*(?:auth|payment|checkout|vault|oauth|sso|identity|customer|webapi|graphql|adminhtml|controller).*"
+  ]
+}

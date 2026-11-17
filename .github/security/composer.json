@@ -1,0 +1,19 @@
+{
+  "name": "ccua/security-tooling",
+  "description": "Tooling-only manifest for the CI Security Scan job; not part of the toolkit package.",
+  "type": "project",
+  "require-dev": {
+    "squizlabs/php_codesniffer": "^3.7",
+    "magento/magento-coding-standard": "^41.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "sort-packages": true,
+    "platform": {
+      "php": "8.3.0"
+    }
+  },
+  "minimum-stability": "stable"
+}
