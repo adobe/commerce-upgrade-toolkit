@@ -8,6 +8,7 @@ model: claude-sonnet-5
 Read @.github/instructions/untrusted-data.instructions.md
 Read @.github/instructions/write-scope.instructions.md
 Read @.github/instructions/secure-code-generation.instructions.md
+Read @.github/skills/upgrade-assessment-pdf/SKILL.md
 Documents only, exact scoped write approval required. Never read raw UCT JSON or
 quarantine evidence; consume normalized accepted records, fixed quarantine reasons/counts
 and numeric raw-count summaries. Git evidence is supplied by the approved orchestrator.
@@ -50,6 +51,11 @@ Apply the `upgrade-hop-report` skill's PRE-HOP REPORT section using
 post-hop checklist passes): Apply the skill's POST-HOP REPORT section. Collect
 `git log --oneline {hopStartSha}..HEAD` and `git diff --stat {hopStartSha}..HEAD`
 from the approved orchestrator; do not execute git commands yourself.
+
+**Client PDF print HTML (pre-hop only):** immediately after writing a hop's `-plan.html`
+(from `/upgrade-hop`; not for `-result.html`), apply the `upgrade-assessment-pdf` skill in the
+same dispatch and write only the print HTML (`-plan-assessment.html`). Do not execute the
+converter; the orchestrator runs `node .github/scripts/html-to-pdf.mjs` and reports the PDF path.
 Write to `.github/reports/hop-{n}-{fromVersion}-{toVersion}-result.html`.
 
 **Deploy-prep runbook report** (dispatched from `/upgrade-deploy-prep`): Build the

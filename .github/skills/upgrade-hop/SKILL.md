@@ -555,4 +555,12 @@ Also update this hop's row in the `## Hop progress` table: `Pre-report` = this p
 
 Print: "Hop-version report saved to .github/reports/hop-{n}-{fromVersion}-{targetVersion}-plan.html"
 
+### Step 8: Generate Client PDF (Pre-Hop)
+
+Immediately after the HTML report is written, dispatch `commerce-documentation-engineer` (or a follow-up dispatch) to apply the `upgrade-assessment-pdf` skill (pre-hop variant) and write ONLY the print HTML to `.github/reports/hop-{n}-{fromVersion}-{targetVersion}-plan-assessment.html`. The agent is document-only and never executes commands. Then this session (the orchestrator) converts it, as a routine step within the approved scope (`mkdir -p output/pdf` first; the converter only reads the print HTML and writes the PDF):
+`node .github/scripts/html-to-pdf.mjs "<print.html>" "output/pdf/{pdfFileName}"`
+If no execution approval exists, return that exact command as a human-run runbook instead.
+
+Print: "Client PDF saved to output/pdf/{pdfFileName}" — or, if conversion failed or was not run, the exact error/runbook and the retained print-HTML path. Never report a PDF as produced unless the script succeeded.
+
 Next step: "Run `/upgrade-hop-execute {targetVersion}` to implement changes in dependency-safe chunks."
