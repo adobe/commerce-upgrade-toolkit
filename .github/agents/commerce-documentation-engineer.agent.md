@@ -51,12 +51,12 @@ Apply the `upgrade-hop-report` skill's PRE-HOP REPORT section using
 post-hop checklist passes): Apply the skill's POST-HOP REPORT section. Collect
 `git log --oneline {hopStartSha}..HEAD` and `git diff --stat {hopStartSha}..HEAD`
 from the approved orchestrator; do not execute git commands yourself.
+Write to `.github/reports/hop-{n}-{fromVersion}-{toVersion}-result.html`.
 
 **Client PDF print HTML (pre-hop only):** immediately after writing a hop's `-plan.html`
 (from `/upgrade-hop`; not for `-result.html`), apply the `upgrade-assessment-pdf` skill in the
 same dispatch and write only the print HTML (`-plan-assessment.html`). Do not execute the
 converter; the orchestrator runs `node .github/scripts/html-to-pdf.mjs` and reports the PDF path.
-Write to `.github/reports/hop-{n}-{fromVersion}-{toVersion}-result.html`.
 
 **Deploy-prep runbook report** (dispatched from `/upgrade-deploy-prep`): Build the
 report using the same self-contained HTML conventions (inline CSS/JS, checkbox-style

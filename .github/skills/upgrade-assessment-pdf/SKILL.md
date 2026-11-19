@@ -1,6 +1,6 @@
 ---
 name: upgrade-assessment-pdf
-description: Builds the client-shareable "Adobe Commerce Upgrade Assessment" PDF for every hop, immediately after the hop HTML report is written. Applied by commerce-documentation-engineer.
+description: "Applied by the `commerce-documentation-engineer` agent, immediately after it writes a hop's pre-hop HTML plan report (`-plan.html`, from `/upgrade-hop`). It is NOT generated after `/upgrade-hop-execute`. Produces a **client-shareable PDF..."
 ---
 
 # Skill: upgrade-assessment-pdf
@@ -24,7 +24,7 @@ Compatibility Tool"), session notes, or secrets.
 
 ## Steps
 
-1. Documentation agent: build the print HTML (below) with the edit/create tool. The agent is
+1. Documentation agent: build the print HTML (below) with the Write tool. The agent is
    document-only and never executes the converter.
 2. Orchestrator (current session, routine scope; else return as a human-run runbook):
    `node .github/scripts/html-to-pdf.mjs "<print.html>" "<final.pdf>"`
