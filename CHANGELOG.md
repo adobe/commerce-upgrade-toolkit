@@ -17,6 +17,13 @@ fast if the entry is missing and to populate the GitHub Release notes.
   pre-flight checks. Added contributor guidance for these paths.
 
 ### Added
+- `assess_tools.mjs` read-only evidence helpers for `/upgrade-assess`: `third-party`
+  (installed `composer.json` PHP/Commerce constraints, purpose, domain), `custom-modules`
+  (purpose from structure, required-by from `module.xml` dependencies) and `patches`
+  (`QUALITY_PATCHES`, hotfix directories, `extra.patches`, Cloud patches version and the
+  installed quality-patches catalog evaluated against the target version). Assessment
+  tables show a specific reason instead of "Not assessed". The report now follows the
+  five-chapter Professional Services template.
 - `scripts/export-assessment.mjs` (`npm run export:assessment -- --html <f> [--md <f>] --out-dir <d>`):
   human-run PDF (headless Chrome/Edge) and DOCX (`pandoc`) export of assessment reports;
   report print CSS no longer leaves blank pages.

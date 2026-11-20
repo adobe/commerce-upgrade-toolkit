@@ -101,8 +101,10 @@ dispatch `commerce-documentation-engineer` with the data file path and the repor
 - `.github/reports/upgrade-assessment-{date}.html`
 - `.github/reports/upgrade-assessment-{date}.md`
 
-Unknown, blocked and not-assessed items must be visible in the report. The report must
-state it is not proof of production readiness.
+Unknown, blocked and not-assessed items must be visible in the report, inside the relevant
+table row. The report follows the PM five-chapter template in Section 6 and omits the
+internal chapters (core upgrade, Composer, complexity/delivery, open items). It must end
+with the one-line "not proof of production readiness" statement.
 
 ## Step 6: Hand-off
 

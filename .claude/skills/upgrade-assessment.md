@@ -112,8 +112,19 @@ Each section writes one object into the assessment data (Section 5). Every table
 
 ### 3.5 Third-party (Composer/vendor) modules
 
-Apply `marketplace-extension-analysis` for compatibility evidence, then assign exactly one
-decision per package:
+First collect local evidence with the read-only helper (no network, no install):
+`node .claude/scripts/assess_tools.mjs third-party <projectDir> [--php 8.5.0] [--assessment <file>]`.
+It reads each package's installed `vendor/<pkg>/composer.json` and `composer.lock` (contained,
+non-symlink paths only) and returns per package: installed version, purpose (composer
+description), domain (heuristic, marked as derived), declared PHP constraint evaluated against
+the target PHP, declared Commerce/framework constraints, Commerce `conflict` entries, an
+`ABANDONED` flag, evidence path, decision, complexity and reason. Use these values to fill the
+report's Domain, Purpose, PHP and Evidence columns; an open-ended constraint such as `>=7.3`
+only shows the installed release does not exclude the target PHP, not that the vendor tested
+it. Packages that cannot be evaluated stay `REVIEW`/`UNKNOWN` and are listed for client
+or vendor confirmation (never "Not assessed" without a stated reason). Then apply
+`marketplace-extension-analysis` for release-level compatibility evidence, and assign exactly
+one decision per package:
 
 | Decision | Meaning |
 |----------|---------|
@@ -138,6 +149,15 @@ Also produce:
 
 ### 3.6 Custom modules
 
+Collect structural evidence first with the read-only helper
+`node .claude/scripts/assess_tools.mjs custom-modules <projectDir>`: per module it returns the
+purpose (composer description, otherwise derived from the module's components such as
+controllers, plugins, cron, GraphQL schema, DB schema; flagged as derived), declared
+`module.xml` dependencies, and **Required-by** evidence (other modules that list it in
+`<sequence>`). `Required` is `Yes - required by <modules>` when other modules depend on it,
+otherwise `Client to confirm (no other module depends on it)`; the business decision itself
+always stays with the client. Never print `Not assessed` in Purpose or Required.
+
 One row per module in `app/code` (read via `read_source.py` evidence):
 module, domain, status (enabled/disabled from `module:status` or `config.php`), required by
 the business (client-confirmed; default `not confirmed`), target-version compatible
@@ -154,7 +174,20 @@ with reason, comment (`No issues found`, `Minor issues found`, `Major issues fou
 
 ### 3.7 Patches
 
-Inventory every patch from the hosting profile's sources (Section 2). Per patch record:
+Collect the local inventory first with the read-only helper
+`node .claude/scripts/assess_tools.mjs patches <projectDir> --target <X.Y.Z>`. It reads
+`QUALITY_PATCHES` in `.magento.env.yaml`, the Cloud patches version in `composer.lock`,
+hotfix directories (`m2-hotfixes/`, `patches/`, `hotfixes/`, including a README reasons
+table), `composer.json` `extra.patches`, and the installed
+`vendor/magento/quality-patches` catalogs. Per patch it returns type, target package and
+installed version, purpose, upstream ID, evidence and a verdict. When the catalog limits an
+Adobe patch to Commerce ranges that exclude the target, the verdict is `DROP` (fixed
+upstream per Adobe metadata, to be confirmed in the target release notes). Patches whose
+catalog entry targets another package (for example inventory) or is absent stay `REVIEW`
+with that reason. The installed catalog can be older than the target; say so and never
+treat a missing entry as a pass. Local hotfixes are `REVIEW` with
+"Dry-run required on <target> tree" until the operator supplies one. Inventory every patch
+from the hosting profile's sources (Section 2). Per patch record:
 identifier/name, type (`adobe-quality`, `adobe-security`, `cloud-patch`, `composer-core`,
 `composer-extension`, `local-hotfix`), target package and version, purpose, owner/ticket if
 known, `fixedInTarget` (`Yes`/`No`/`Unknown`, from release notes or the Adobe patch
@@ -292,12 +325,40 @@ file (no external CDN, no cost/effort figures):
 - HTML: `.claude/reports/upgrade-assessment-{date}.html`
 - Markdown: `.claude/reports/upgrade-assessment-{date}.md`
 
-Chapter order: 1 Introduction (purpose, audience, context, objective) · 2 Code
-compatibility · 3 Platform and cloud services · 4 Core upgrade · 5 Third-party modules ·
-6 Custom modules · 7 Patches · 8 Composer and dependency updates · 9 Complexity and
-delivery outline · 10 Open items and client inputs. Include the data-source/retrieval
-table and the standard disclaimer: the assessment reflects the analysis actually performed
-and is not proof of production readiness.
+Client-facing structure (PM template). The report is an intro paragraph ("This report
+summarizes the findings of the upgrade analysis of <project> from <from> to <to>, and the
+required changes to both custom and third-party modules, platform services and patches.")
+followed by **only** these five chapters, in this order:
+
+1. **Code Compatibility Assessment** — 1.1 PHP target version compatibility
+   (`# | Severity | Module | File:Line | Effort | Issue`); 1.2 Adobe Commerce target version
+   compatibility, UCT critical-only differential (`# | Severity | Module | Domain |
+   File:Line | Effort | Issue`) with a short legend of critical codes.
+2. **Cloud Services Upgrade** — `Service | Current Version | Upgrade Version | Comments`,
+   a brief per-service list, the support-ticket note (open 30 days before enforcement,
+   validate on non-production first) and the system-requirements and lifecycle-policy links.
+3. **Third-Party Module Compatibility** — `# | Package | Domain | Purpose | Installed |
+   Target | PHP | Commerce | Evidence | Decision | Findings (UCT/PHP) | Effort | Risk`,
+   method bullets and the decision legend.
+4. **Custom Modules Compatibility** — `# | Modules | Domain | Purpose | Status | Required |
+   Target Compatible | Findings (UCT/PHP) | Effort | Comments`, with a short legend.
+5. **Patches Compatibility** — `# | Patch | Type | Target | Purpose | Fixed in <target> |
+   Applies to <target> | Action | Effort | Comments`, a one-line action summary and a short
+   "How to assess patches" list.
+
+Effort is displayed as XS/S/M/L, mapped from the data model: Small→S (XS for a trivial
+one-line mechanical change), Medium→M, High→L; `UNKNOWN` stays `UNKNOWN`. Never hours,
+days or costs.
+
+**Do not render in the client report** (they stay in `upgrade-assessment.json` for the
+team): Introduction with purpose/audience/context/objective, core-upgrade narrative,
+Composer/dev-dependency changes, complexity summary and delivery outline, open-items
+chapter, data-source/hash table, debt-category tables, quarantine counters, Reason and
+deadline columns, version-discrepancy callouts, internal PM notes ("notes on adapting",
+placeholders, sample-report lists) and process commentary. Unresolved gaps appear only as
+`UNKNOWN`/`Not assessed` in the relevant row's Comments. End with one line: "This
+assessment reflects the analysis performed and is not proof of production readiness." and
+the footer "Generated by Adobe Commerce Upgrade Toolkit".
 
 **DOCX and PDF** are produced by the human from the HTML/Markdown files; agents do not
 write binary documents or run converters. Offer these as a runbook, for example:

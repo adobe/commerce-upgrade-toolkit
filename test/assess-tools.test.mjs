@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath } from '../.claude/scripts/assess_tools.mjs'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath, satisfies, customModuleEvidence, patchEvidence } from '../.claude/scripts/assess_tools.mjs'
 
 const f = (over = {}) => ({ code: 'MC-1', type: 'critical', file: 'a.php', line: 1, message: 'removed', ...over })
 
@@ -81,4 +84,50 @@ test('classifyPatch triages patches and never guesses when evidence is missing',
   assert.equal(classifyPatch({ fixedUpstream: false, applies: false }).action, 'REWORK')
   assert.equal(classifyPatch({ vendorReleaseHasFix: true }).action, 'REPLACE_WITH_VENDOR_RELEASE')
   assert.equal(classifyPatch({}).action, 'REVIEW')
+})
+
+test('satisfies evaluates composer PHP constraints and never guesses', () => {
+  assert.equal(satisfies('~8.1.0||~8.2.0||~8.3.0', '8.5.0'), false)
+  assert.equal(satisfies('>=7.3', '8.5.0'), true)
+  assert.equal(satisfies('^8.1', '8.5.0'), true)
+  assert.equal(satisfies('~5.5.0|~5.6.0|>=7.0.0', '8.5.0'), true)
+  assert.equal(satisfies('8.4.*', '8.5.0'), false)
+  assert.equal(satisfies('dev-master', '8.5.0'), null)
+  assert.equal(satisfies('', '8.5.0'), null)
+})
+
+test('customModuleEvidence derives purpose and required-by from module structure', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cm-'))
+  const mk = (v, m, seq) => {
+    mkdirSync(join(root, 'app/code', v, m, 'etc'), { recursive: true })
+    mkdirSync(join(root, 'app/code', v, m, 'Plugin'))
+    const dep = seq ? `<sequence><module name="${seq}"/></sequence>` : ''
+    writeFileSync(join(root, 'app/code', v, m, 'etc/module.xml'), `<config><module name="${v}_${m}" setup_version="1.0.0">${dep}</module></config>`)
+  }
+  mk('Acme', 'Base')
+  mk('Acme', 'Child', 'Acme_Base')
+  const rows = customModuleEvidence(root)
+  const base = rows.find((r) => r.module === 'Acme_Base')
+  assert.match(base.required, /^Yes - required by Acme_Child/)
+  assert.match(base.purpose, /plugins/)
+  assert.match(rows.find((r) => r.module === 'Acme_Child').required, /^Client to confirm/)
+})
+
+test('patchEvidence drops catalog patches whose range excludes the target and keeps hotfixes for dry-run', () => {
+  const root = mkdtempSync(join(tmpdir(), 'pt-'))
+  mkdirSync(join(root, 'vendor/magento/quality-patches'), { recursive: true })
+  mkdirSync(join(root, 'm2-hotfixes'))
+  writeFileSync(join(root, '.magento.env.yaml'), 'stage:\n  build:\n    QUALITY_PATCHES:\n      - ACSD-1\n      - ACSD-2\n')
+  writeFileSync(join(root, 'vendor/magento/quality-patches/support-patches.json'), JSON.stringify({
+    'ACSD-1': { title: 'Old fix', packages: { 'magento/magento2-base': { '>=2.4.0 <2.4.6': { file: 'x' } } } },
+    'ACSD-2': { title: 'Current fix', packages: { 'magento/magento2-base': { '>=2.4.5': { file: 'y' } } } }
+  }))
+  writeFileSync(join(root, 'm2-hotfixes/CUSTOM-X.patch'), '--- a/vendor/acme/mod/A.php\n+++ b/vendor/acme/mod/A.php\n')
+  const { rows } = patchEvidence(root, { target: '2.4.9' })
+  assert.equal(rows.find((r) => r.patch === 'ACSD-1').verdict, 'DROP')
+  assert.equal(rows.find((r) => r.patch === 'ACSD-2').verdict, 'KEEP')
+  const hot = rows.find((r) => r.patch === 'CUSTOM-X.patch')
+  assert.equal(hot.verdict, 'REVIEW')
+  assert.match(hot.appliesToTarget, /Dry-run required/)
+  assert.match(hot.targetPackage, /acme\/mod/)
 })
