@@ -15,6 +15,7 @@ Turn a complex version upgrade into a sequence of reviewable steps. The toolkit 
 | Frontend impact analysis | Reviews theme overrides and template compatibility, producing a developer review checklist rather than automatically changing frontend assets. |
 | Guided remediation | Organizes approved fixes into reviewable work, with validation and resumable execution. |
 | Deployment preparation | Produces a readiness assessment and deployment runbook after the upgrade hops are complete. |
+| Upgrade assessment | `/upgrade-assess <version>` produces a read-only assessment: differential compatibility, platform services, third-party and custom module decisions, patch actions and Composer changes, with High/Medium/Small complexity ratings (no effort numbers). HTML and Markdown are generated; PDF and DOCX are converted by you. |
 | Interactive reporting | Generates standalone HTML documents for the roadmap, individual hops, and deployment preparation. |
 
 ## How hop reports are generated

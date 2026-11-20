@@ -243,6 +243,24 @@ Tab 7 — Notes
 
 ---
 
+## ASSESSMENT REPORT (`/upgrade-assess`)
+
+Source: `context/upgrade-assessment.json` (must have passed `assess_tools.mjs validate`).
+Outputs (same HTML requirements below, plus a Markdown twin with identical chapters):
+`.claude/reports/upgrade-assessment-{date}.html` and `.md`. One tab per chapter:
+1 Introduction · 2 Code compatibility · 3 Platform and cloud services · 4 Core upgrade ·
+5 Third-party modules · 6 Custom modules · 7 Patches · 8 Composer and dependencies ·
+9 Complexity and delivery outline (includes risks and branching strategy) ·
+10 Open items and client inputs. Show complexity as High/Medium/Small/UNKNOWN badges with
+the recorded reason, a summary line under each table, the data-source retrieval table and
+the `gaps` list. Never render effort points, hours, durations or costs.
+
+**Print CSS (required for PDF export):** do not set `break-inside: avoid` on whole chapters
+(long chapters then jump to a new page and leave blank pages). Use
+`section.chapter { border:none; box-shadow:none; }`,
+`h2, h3 { break-after: avoid; }`, `table tr, .card, pre { break-inside: avoid; }`,
+`thead { display: table-header-group; }` and `@page { size: A4; margin: 14mm; }`.
+
 ## HTML REQUIREMENTS (apply to both reports)
 
 - **Self-contained** — no external CDN, fonts, or scripts. All CSS and JS inline.

@@ -166,8 +166,9 @@ export async function runGithubCopilotSetup({ toolRoot, projectRoot, installType
   console.log('     3. Run upgrade-hop <version> to scan and analyse the first hop.');
   console.log('     4. Run upgrade-hop-execute <version> to implement fixes for that hop.');
   console.log('     5. Run upgrade-deploy-prep once all hops are complete.');
-  console.log('     6. See docs/upgrade-workflow.md for the full upgrade workflow diagram.');
-  console.log('     7. See .github/copilot-settings-notes.md for the Bash-permissions/hooks gaps Copilot cannot mechanically enforce.');
+  console.log('     6. Optional: run upgrade-assess <version> for a read-only upgrade assessment report.');
+  console.log('     7. See docs/upgrade-workflow.md for the full upgrade workflow diagram.');
+  console.log('     8. See .github/copilot-settings-notes.md for the Bash-permissions/hooks gaps Copilot cannot mechanically enforce.');
 
   return { projectRoot, agent: 'github-copilot', copied };
 }

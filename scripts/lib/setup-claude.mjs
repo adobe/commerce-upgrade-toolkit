@@ -180,7 +180,8 @@ export async function runClaudeCodeSetup({ toolRoot, projectRoot, installType, e
   console.log('     3. Type /upgrade-hop <version> to scan and analyse the first hop.');
   console.log('     4. Type /upgrade-hop-execute <version> to implement fixes for that hop.');
   console.log('     5. Type /upgrade-deploy-prep once all hops are complete.');
-  console.log('     6. See docs/upgrade-workflow.md for the full upgrade workflow diagram.');
+  console.log('     6. Optional: type /upgrade-assess <version> for a read-only upgrade assessment report.');
+  console.log('     7. See docs/upgrade-workflow.md for the full upgrade workflow diagram.');
 
   return { projectRoot, agent: 'claude-code', copied };
 }

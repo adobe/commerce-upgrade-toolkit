@@ -36,7 +36,7 @@ test('all generated skill descriptions port canonical paths consistently with th
 });
 
 test('all upgrade entry points run in the current session without selecting a custom agent', () => {
-  for (const name of ['upgrade-hop', 'upgrade-hop-execute', 'upgrade-deploy-prep']) {
+  for (const name of ['upgrade-hop', 'upgrade-hop-execute', 'upgrade-deploy-prep', 'upgrade-assess']) {
     for (const path of [`.claude/commands/${name}.md`, `.github/skills/${name}/SKILL.md`]) {
       const text = read(path);
       assert.match(text, /current Copilot\/Claude session as `orchestrator`/, path);

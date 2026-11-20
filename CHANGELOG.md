@@ -17,6 +17,15 @@ fast if the entry is missing and to populate the GitHub Release notes.
   pre-flight checks. Added contributor guidance for these paths.
 
 ### Added
+- `scripts/export-assessment.mjs` (`npm run export:assessment -- --html <f> [--md <f>] --out-dir <d>`):
+  human-run PDF (headless Chrome/Edge) and DOCX (`pandoc`) export of assessment reports;
+  report print CSS no longer leaves blank pages.
+- `/upgrade-assess <version>` and the `upgrade-assessment` skill: a read-only Upgrade
+  Assessment report modelled on Adobe Professional Services assessments (PHP and
+  differential UCT compatibility, platform/cloud services, third-party and custom module
+  decisions, patch actions, Composer proposal, delivery outline). Complexity is rated
+  High/Medium/Small only; no effort points, hours or durations. Supports Cloud and
+  on-premises hosting profiles. Produces HTML and Markdown; PDF/DOCX are human-converted.
 - Mandatory security gate for AI-generated upgrade code (`security_gate.py`, Semgrep rules and
   policy): per-chunk scan before any patch is applied, human approval for security-critical
   changes, post-upgrade scan across all hops, a `Security Scan` CI job, and a secure-code

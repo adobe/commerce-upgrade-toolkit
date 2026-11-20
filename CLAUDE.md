@@ -210,6 +210,7 @@ remains genuinely open:
 | `/upgrade-hop [version]` | Planning mode (no arg): detect versions, generate multi-hop roadmap, write `upgrade-state.md`. Analysis mode (version arg): run UCT scan, categorise findings by severity across 6 domains. |
 | `/upgrade-hop-execute <version>` | Execute one hop: pre-gate checks, per-chunk fixes with DI compile + PHPCS + PHPUnit validation, resumable via `--chunk=N`. |
 | `/upgrade-deploy-prep` | Prepare an upgraded codebase for deployment. |
+| `/upgrade-assess <version>` | Read-only Upgrade Assessment report: PHP and UCT differential compatibility, platform/cloud services, third-party and custom modules, patches, Composer changes. Complexity is rated High/Medium/Small only (no effort numbers). Writes HTML + Markdown; PDF/DOCX are human-converted. |
 
 ### Agents
 
@@ -270,3 +271,4 @@ per the paths and structure defined in the `upgrade-hop-report` skill:
   analysis-mode pre-hop report (`.claude/reports/hop-{n}-{from}-{to}-plan.html`)
 - `/upgrade-hop-execute` — post-hop report (`.claude/reports/hop-{n}-{from}-{to}-result.html`)
 - `/upgrade-deploy-prep` — deploy-prep runbook report (`.claude/reports/upgrade-deploy-plan-{date}.html`)
+- `/upgrade-assess` — assessment report (`.claude/reports/upgrade-assessment-{date}.html` and `.md`)

@@ -9,6 +9,7 @@
     "update:project:self": "node scripts/update-project.mjs --project .",
     "verify:integrity": "node scripts/verify-integrity.mjs",
     "generate:github": "node scripts/generate-github-assets.mjs",
+    "export:assessment": "node scripts/export-assessment.mjs",
     "check:encryption": "node .claude/scripts/check-encryption-changes.mjs",
     "check:secret-safety": "node scripts/check-secret-safety.mjs",
     "test": "node --test"
@@ -44,12 +45,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/OneAdobe/project-ccua.git"
+    "url": "https://github.com/adobe/commerce-upgrade-toolkit.git"
   },
   "bugs": {
-    "url": "https://github.com/OneAdobe/project-ccua/issues"
+    "url": "https://github.com/adobe/commerce-upgrade-toolkit/issues"
   },
-  "homepage": "https://github.com/OneAdobe/project-ccua#readme",
+  "homepage": "https://github.com/adobe/commerce-upgrade-toolkit#readme",
   "engines": {
     "node": ">=18.0.0"
   },
