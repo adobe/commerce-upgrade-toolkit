@@ -325,8 +325,10 @@ Run `validate` before dispatching the documentation agent; a non-zero exit block
 
 ## 6. Report formats
 
-The `commerce-documentation-engineer` agent writes two document-only files from the data
-file (no external CDN, no cost/effort figures):
+The `commerce-documentation-engineer` agent composes two document-only files from the data
+file (no external CDN, no cost/effort figures), using the **Document report persistence handoff**
+in `write-scope` when child writes are unavailable. The parent verifies read-back before
+reporting either document as saved:
 - HTML: `.github/reports/upgrade-assessment-{date}.html`
 - Markdown: `.github/reports/upgrade-assessment-{date}.md`
 
