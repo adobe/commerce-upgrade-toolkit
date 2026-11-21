@@ -2,6 +2,12 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
+## [1.0.4]
+
+- Automatically retry Python HTTP 403 documentation failures through controlled curl.
+- Preserve TLS verification, URL and redirect checks, and response size limits; record the retrieval method, content hash, and original failure.
+- Document research prerequisites and fallback troubleshooting.
+
 ## [1.0.3]
 
 - Add explicit SDK read/write tools for the documentation agent while preserving document-only scope.

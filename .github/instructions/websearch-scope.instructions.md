@@ -48,6 +48,16 @@ default store has no certificates. Never disable TLS verification or substitute 
 CA bundle. For HTTP 403, record the status and investigate the request/environment; do not
 assume changing headers will resolve it, spoof a browser, or bypass authentication.
 
+On Python HTTP 403, the helper automatically tries a controlled curl web fetch for the
+same validated URL. Curl configuration files are disabled; no cookies, credentials,
+browser state, custom User-Agent or insecure TLS options are supplied. Curl never follows
+redirects itself: the helper validates each target before issuing the next request.
+The response remains size-limited and records `retrieval_method: controlled-curl`,
+the final official URL, content SHA-256 and the original 403 as `fallback_reason`.
+Install curl in the environment where research runs if it is missing. Existing approved
+`SSL_CERT_FILE`/`SSL_CERT_DIR` overrides also apply to curl. This client fallback is part
+of the approved helper action, not permission to run unrestricted curl commands.
+
 If controlled retrieval fails, use the reviewed fallback below before declaring an evidence
 gap. If the helper/runtime is unavailable, stop automated retrieval; do not silently switch
 to an unchecked web tool. Do not claim this rule enforces native web-tool redirects
