@@ -352,6 +352,85 @@ except ValueError: pass
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('controlled fetch selects a trusted system CA store without weakening TLS', () => {
+  const result = python(['-c', `
+import importlib.util, ssl
+from unittest.mock import Mock, patch
+spec = importlib.util.spec_from_file_location("research_url", ".claude/scripts/research_url.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+with patch.dict(m.os.environ, {}, clear=True), \\
+     patch.object(m.ssl, "create_default_context", return_value=context), \\
+     patch.object(context, "get_ca_certs", side_effect=[[], ["trusted"]]), \\
+     patch.object(context, "load_verify_locations") as load, \\
+     patch.object(m.os.path, "isfile", side_effect=lambda p: p == "/etc/ssl/cert.pem"):
+    assert m.tls_context() is context
+    load.assert_called_once_with(cafile="/etc/ssl/cert.pem")
+    assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+with patch.dict(m.os.environ, {}, clear=True), \\
+     patch.object(m.ssl, "create_default_context", return_value=context), \\
+     patch.object(context, "get_ca_certs", return_value=["trusted"]), \\
+     patch.object(context, "load_verify_locations") as load:
+    assert m.tls_context() is context
+    load.assert_not_called()
+with patch.dict(m.os.environ, {}, clear=True), \\
+     patch.object(m.ssl, "create_default_context", return_value=context), \\
+     patch.object(context, "get_ca_certs", return_value=[]), \\
+     patch.object(m.os.path, "isfile", return_value=False):
+    try:
+        m.tls_context()
+        raise AssertionError("empty trust store accepted")
+    except ssl.SSLError as error:
+        assert "SSL_CERT_FILE" in str(error)
+with patch.dict(m.os.environ, {"SSL_CERT_FILE": "/approved/ca.pem"}, clear=True), \\
+     patch.object(m.ssl, "create_default_context", return_value=context) as create, \\
+     patch.object(m.os.path, "isfile") as probe:
+    assert m.tls_context() is context
+    create.assert_called_once_with(cafile="/approved/ca.pem", capath=None)
+    probe.assert_not_called()
+with patch.dict(m.os.environ, {"SSL_CERT_FILE": "/missing/ca.pem"}, clear=True), \\
+     patch.object(m.ssl, "create_default_context", side_effect=FileNotFoundError("missing CA")), \\
+     patch.object(m.os.path, "isfile") as probe:
+    try:
+        m.tls_context()
+        raise AssertionError("explicit invalid CA silently replaced")
+    except FileNotFoundError: pass
+    probe.assert_not_called()
+`]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('research diagnostics distinguish HTTP rejection from TLS verification failure', () => {
+  const result = python(['-c', `
+import importlib.util, io, json, ssl, sys
+from contextlib import redirect_stderr, redirect_stdout
+from urllib.error import HTTPError, URLError
+spec = importlib.util.spec_from_file_location("research_url", ".claude/scripts/research_url.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+url = "https://experienceleague.adobe.com/en/docs/commerce-operations/release/versions"
+sys.argv = ["research_url", "fetch", url]
+cases = [
+    (HTTPError(url, 403, "<untrusted server reason>", {}, None), "HTTPError", "Forbidden"),
+    (URLError(ssl.SSLCertVerificationError("unable to get local issuer certificate")),
+     "SSLCertVerificationError", "unable to get local issuer certificate"),
+    (URLError(TimeoutError("request timed out")), "TimeoutError", "request timed out"),
+]
+for failure, kind, message in cases:
+    def fail(url): raise failure
+    m.fetch = fail
+    output, errors = io.StringIO(), io.StringIO()
+    with redirect_stdout(output), redirect_stderr(errors):
+        assert m.main() == 1
+    assert output.getvalue() == ""
+    diagnostic = json.loads(errors.getvalue())
+    assert diagnostic["error"] == kind and message in diagnostic["message"]
+    assert diagnostic["research_status"] == "unverified"
+    if kind == "HTTPError": assert diagnostic["status"] == 403
+    assert "<" not in errors.getvalue() and ">" not in errors.getvalue()
+`]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('canonical and generated research/edit/execute grants are separated', () => {
   for (const name of ['commerce-upgrade-researcher', 'commerce-architect',
     'commerce-frontend-developer', 'commerce-security-reviewer']) {
