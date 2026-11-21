@@ -195,7 +195,8 @@ Act as a senior Commerce architect designing the lowest-risk path from fromVersi
 Do NOT rely on hardcoded version lists or a fixed "must-stop-here" table — those go stale the moment Adobe ships a new patch. Use `WebSearch`/`WebFetch` first, scoped to Adobe's own Commerce/Experience League content.
 
 Apply the strict `websearch-scope` allowlist before every query. Include "Adobe Commerce"
-and scoped site filters; discard off-list results and stop on evidence gaps.
+and scoped site filters; discard off-list results. If official-page retrieval fails, apply
+that guardrail's reviewed browser/manual-document fallback before reporting an evidence gap.
 
 **Shared cross-project cache — check before the per-project cache:**
 Apply the `known-breaking-changes` skill. Check its infra-floor table and confirmed-pairs
@@ -235,7 +236,8 @@ stable public release, record a reviewed `untrusted-candidate` in project state 
 Never update the shipped `known-breaking-changes` skill during a customer upgrade.
 
 **Evidence gap:**
-If scoped documentation searches return nothing relevant, stop affected research and report
+If scoped documentation searches return nothing relevant, or retrieved pages remain
+unverifiable after the `websearch-scope` reviewed fallback, stop affected research and report
 the gap; no unrestricted fallback or automatic promotion is permitted.
 
 From the aggregated results, decide hop boundaries using architect judgment:
