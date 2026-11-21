@@ -1,7 +1,10 @@
 {
-  "name": "@adobe-thillai/aio-cli-plugin-ccua",
-  "version": "2.0.1",
-  "description": "Claude Code or GitHub Copilot commands, agents, and skills for Adobe Commerce / Magento 2 version-upgrade work — hop planning, UCT scanning, chunked remediation, and deploy prep.",
+  "name": "@adobe-commerce/commerce-upgrade-toolkit",
+  "version": "1.0.0",
+  "description": "AI-guided, developer-approved Adobe Commerce PaaS upgrades with Claude Code or GitHub Copilot — hop planning, UCT scanning, remediation, and deployment preparation.",
+  "commerceUpgradeToolkit": {
+    "installerApiVersion": 1
+  },
   "scripts": {
     "setup:project": "node scripts/setup-project.mjs",
     "setup:project:self": "node scripts/setup-project.mjs --project .",
@@ -56,7 +59,16 @@
   },
   "files": [
     ".claude",
-    ".github",
+    ".github/agents",
+    ".github/context",
+    ".github/hooks",
+    ".github/instructions",
+    ".github/prompts",
+    ".github/scripts",
+    ".github/security",
+    ".github/skills",
+    ".github/copilot-instructions.md",
+    ".github/copilot-settings-notes.md",
     "scripts",
     "src",
     "CLAUDE.md",

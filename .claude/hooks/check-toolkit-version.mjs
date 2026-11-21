@@ -21,7 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 
-const PACKAGE_NAME = '@adobe-thillai/aio-cli-plugin-ccua';
+const PACKAGE_NAME = '@adobe-commerce/commerce-upgrade-toolkit';
 const NPM_VIEW_TIMEOUT_MS = 3000;
 
 const projectRoot = process.cwd();
@@ -72,11 +72,11 @@ async function main() {
   const lastNotified = readTrimmed(lastNotifiedPath);
   if (lastNotified === latestVersion) return; // already notified for this version
 
-  const userNotice = `Adobe Commerce Upgrade Toolkit: a newer version (v${latestVersion}) is available — you have v${installedVersion}. Run "aio ccua:update" to update.`;
+  const userNotice = `Adobe Commerce Upgrade Toolkit: a newer version (v${latestVersion}) is available — you have v${installedVersion}. Run "aio commerce upgrade tools-setup" and select the same agent to update.`;
   const modelContext =
     `A newer toolkit version (v${latestVersion}) is available; installed is v${installedVersion}.\n` +
-    `Ask the user if they'd like to update now — if yes, run: aio ccua:update.\n` +
-    `After it finishes, tell the user to restart the Claude Code session to pick up the changes.`;
+    `Ask the user if they'd like to update now — if yes, run: aio commerce upgrade tools-setup and select the same agent.\n` +
+    `After it finishes, tell the user to restart their coding agent session to pick up the changes.`;
 
   // `systemMessage` renders directly in the UI regardless of whether the user
   // has sent a first prompt yet — that's what actually makes this visible on
