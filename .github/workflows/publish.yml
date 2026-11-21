@@ -1,0 +1,139 @@
+name: Publish npm package
+
+# Fires when a release/* branch's PR into main is merged. Requires the release
+# branch to have (1) bumped the version in package.json and (2) added a
+# matching "## [x.y.z]" section to CHANGELOG.md before opening the PR.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Configure required reviewers on this environment in repo settings so a
+    # merged release PR alone cannot publish.
+    environment: npm-publish
+    permissions:
+      contents: write
+      id-token: write   # required for npm OIDC Trusted Publishing — no NPM_TOKEN needed
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update npm CLI
+        run: npm install -g npm@11   # OIDC trusted publishing needs npm >= 11.5.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check generated Copilot assets
+        run: |
+          npm run generate:github
+          if [ -n "$(git status --porcelain -- .github)" ]; then
+            git status --short -- .github
+            git diff -- .github
+            echo "::error::Regenerate and commit the Copilot assets before publishing."
+            exit 1
+          fi
+
+      - name: Run tests
+        run: npm test
+
+      - name: Read package version
+        id: pkg
+        run: |
+          node -e "
+            const v = require('./package.json').version;
+            const semver = /^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
+            if (typeof v !== 'string' || !semver.test(v)) {
+              console.error('::error::package.json version is not valid semver');
+              process.exit(1);
+            }
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + v + '\n');
+          "
+
+      - name: Check if version is already published
+        id: check
+        env:
+          PKG_VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          PUBLISHED=$(npm view "$(node -p "require('./package.json').name")" versions --json 2>/dev/null | node -e "
+            let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+              const want=process.env.PKG_VERSION;
+              let v=[];try{v=JSON.parse(d||'[]')}catch{};
+              console.log(Array.isArray(v)?v.includes(want):v===want)
+            })")
+          case "$PUBLISHED" in
+            true|false) ;;
+            *) echo "::error::Could not determine npm publication state; rerun this workflow"; exit 1 ;;
+          esac
+          echo "already_published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog entry
+        env:
+          PKG_VERSION: ${{ steps.pkg.outputs.version }}
+        run: node scripts/extract-changelog.mjs "$PKG_VERSION" > /tmp/release-notes.md
+
+      # Only npm publication is skipped on rerun; release finalization below is
+      # idempotent so a post-publish failure can always be recovered by rerunning.
+      - name: Publish to npm
+        if: steps.check.outputs.already_published == 'false'
+        run: npm publish --access public --provenance   # OIDC Trusted Publisher, no token; attaches signed provenance
+
+      - name: Record published integrity in release notes
+        env:
+          PKG_VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          INTEGRITY=""
+          for i in $(seq 1 30); do
+            INTEGRITY=$(npm view "$PKG_NAME@$PKG_VERSION" dist.integrity 2>/dev/null || true)
+            [ -n "$INTEGRITY" ] && break
+            sleep 10
+          done
+          [ -n "$INTEGRITY" ] || { echo "::error::Could not read dist.integrity for $PKG_NAME@$PKG_VERSION; rerun this workflow to finish the release"; exit 1; }
+          {
+            printf '\n\n## Verify this release\n\n'
+            printf 'Install the pinned version: `aio plugins:install %s@%s`\n\n' "$PKG_NAME" "$PKG_VERSION"
+            printf 'Expected `dist.integrity`: `%s`\n' "$INTEGRITY"
+          } >> /tmp/release-notes.md
+
+      - name: Tag release commit
+        env:
+          PKG_VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          TAG="v$PKG_VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — skipping."
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: v${{ steps.pkg.outputs.version }}
+          name: v${{ steps.pkg.outputs.version }}
+          body_path: /tmp/release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

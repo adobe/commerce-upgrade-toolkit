@@ -1,0 +1,73 @@
+{
+  "name": "@adobe-thillai/aio-cli-plugin-ccua",
+  "version": "2.0.1",
+  "description": "Claude Code or GitHub Copilot commands, agents, and skills for Adobe Commerce / Magento 2 version-upgrade work — hop planning, UCT scanning, chunked remediation, and deploy prep.",
+  "scripts": {
+    "setup:project": "node scripts/setup-project.mjs",
+    "setup:project:self": "node scripts/setup-project.mjs --project .",
+    "update:project": "node scripts/update-project.mjs",
+    "update:project:self": "node scripts/update-project.mjs --project .",
+    "verify:integrity": "node scripts/verify-integrity.mjs",
+    "generate:github": "node scripts/generate-github-assets.mjs",
+    "check:encryption": "node .claude/scripts/check-encryption-changes.mjs",
+    "check:secret-safety": "node scripts/check-secret-safety.mjs",
+    "test": "node --test"
+  },
+  "oclif": {
+    "bin": "aio",
+    "commands": "./src/commands",
+    "topics": {
+      "ccua": {
+        "description": "Adobe Commerce Upgrade Toolkit — install and update Claude Code or GitHub Copilot upgrade workflows in a Commerce project"
+      },
+      "ccua agent": {
+        "description": "Choose and install the agent toolkit flavour (Claude Code or GitHub Copilot)"
+      }
+    }
+  },
+  "keywords": [
+    "claude-code",
+    "claude",
+    "anthropic",
+    "github-copilot",
+    "adobe-commerce",
+    "magento",
+    "magento2",
+    "commerce-upgrade",
+    "uct",
+    "ai-tools"
+  ],
+  "author": "Thillai Prabu",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OneAdobe/project-ccua.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OneAdobe/project-ccua/issues"
+  },
+  "homepage": "https://github.com/OneAdobe/project-ccua#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    ".claude",
+    ".github",
+    "scripts",
+    "src",
+    "CLAUDE.md",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "COPYRIGHT",
+    "CODE_OF_CONDUCT.md",
+    "setup.sh"
+  ],
+  "dependencies": {
+    "@oclif/core": "4.3.1",
+    "fs-extra": "11.3.6"
+  }
+}

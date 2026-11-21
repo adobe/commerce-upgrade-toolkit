@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+.env
+
+# Temp credentials
+.aws.tmp.creds.json
+
+# Non-secret local change-review/audit evidence (never store secrets here)
+/.ccua/
+
+# CI security-tooling Composer install
+/.github/security/vendor/
+
+# Private UCT failure captures and reconciliation staging
+/.claude/context/.uct-capture-*/
+/.github/context/.uct-capture-*/
+/.ccua-reconcile-*/
+/.vscode/.ccua-reconcile-*/
+/.claude/.ccua-reconcile-*/

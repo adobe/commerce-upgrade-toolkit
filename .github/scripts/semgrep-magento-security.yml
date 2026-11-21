@@ -1,0 +1,246 @@
+rules:
+  - id: ccua.sql-injection-concat
+    languages: [php]
+    severity: ERROR
+    message: SQL built by concatenation or interpolation instead of bound parameters.
+    metadata:
+      ccua_severity: HIGH
+      category: sql-injection
+      remediation: Use bound parameters (query($sql, [$value]) or ?/:named placeholders), $connection->quoteInto(), or Select::where('col = ?', $value).
+    pattern-either:
+      - pattern: $DB->query($A . $B, ...)
+      - pattern: $DB->fetchAll($A . $B, ...)
+      - pattern: $DB->fetchRow($A . $B, ...)
+      - pattern: $DB->fetchOne($A . $B, ...)
+      - pattern: $DB->fetchCol($A . $B, ...)
+      - pattern: $DB->fetchPairs($A . $B, ...)
+      - pattern: $DB->exec($A . $B)
+      - pattern: $DB->rawQuery($A . $B)
+      - pattern: $SEL->where($A . $B, ...)
+      - pattern: $SEL->joinLeft($T, $A . $B, ...)
+      - pattern: $SEL->order($A . $B)
+      - pattern: $SEL->getSelect()->where($A . $B, ...)
+      - pattern: $DB->query("...$X...", ...)
+      - pattern: $DB->fetchAll("...$X...", ...)
+      - pattern: $DB->fetchRow("...$X...", ...)
+      - pattern: $DB->fetchOne("...$X...", ...)
+      - pattern: $DB->fetchCol("...$X...", ...)
+      - pattern: $SEL->where("...$X...", ...)
+    paths:
+      exclude: ["**/Test/**"]
+
+  - id: ccua.unsafe-unserialize
+    languages: [php]
+    severity: ERROR
+    message: unserialize() on data that may be untrusted allows PHP object injection.
+    metadata:
+      ccua_severity: HIGH
+      category: unsafe-deserialization
+      remediation: Use Magento\Framework\Serialize\Serializer\Json; if native unserialize is unavoidable pass ['allowed_classes' => false].
+    patterns:
+      - pattern: unserialize(...)
+      - pattern-not: unserialize($X, ["allowed_classes" => false])
+      - pattern-not: unserialize($X, ['allowed_classes' => false])
+    paths:
+      exclude: ["**/Test/**"]
+
+  - id: ccua.code-execution
+    languages: [php]
+    severity: ERROR
+    message: Dynamic code or command execution.
+    metadata:
+      ccua_severity: CRITICAL
+      category: command-injection
+      remediation: Remove eval/shell execution; use Magento framework APIs. Never pass request data to a shell.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: shell_exec(...)
+      - pattern: system(...)
+      - pattern: passthru(...)
+      - pattern: proc_open(...)
+      - pattern: popen(...)
+      - pattern: assert($X)
+      - pattern: create_function(...)
+    paths:
+      exclude: ["**/Test/**"]
+
+  - id: ccua.objectmanager-dynamic-class
+    languages: [php]
+    severity: ERROR
+    message: ObjectManager instantiates a class chosen at runtime (service locator with variable class name).
+    metadata:
+      ccua_severity: HIGH
+      category: insecure-dependency-access
+      remediation: Inject a factory or a typed collaborator via the constructor; map allowed classes explicitly in di.xml.
+    patterns:
+      - pattern-either:
+          - pattern: $OM->get($VAR)
+          - pattern: $OM->create($VAR, ...)
+      - metavariable-regex:
+          metavariable: $OM
+          regex: (?i).*objectmanager.*
+    paths:
+      exclude: ["**/Test/**", "**/Setup/**"]
+
+  - id: ccua.objectmanager-service-locator
+    languages: [php]
+    severity: WARNING
+    message: Direct ObjectManager use hides dependencies and bypasses DI.
+    metadata:
+      ccua_severity: MEDIUM
+      category: insecure-dependency-access
+      remediation: Use constructor injection or a generated factory instead of ObjectManager.
+    pattern-either:
+      - pattern: \Magento\Framework\App\ObjectManager::getInstance()
+      - pattern: ObjectManager::getInstance()
+      - pattern: $THIS->_objectManager->get(...)
+      - pattern: $THIS->_objectManager->create(...)
+    paths:
+      exclude: ["**/Test/**", "**/Setup/**"]
+
+  - id: ccua.xss-request-data-unescaped
+    languages: [php]
+    severity: ERROR
+    message: Request data echoed without escaping.
+    metadata:
+      ccua_severity: HIGH
+      category: xss
+      remediation: Escape for the output context with $escaper->escapeHtml(), escapeHtmlAttr(), escapeUrl() or escapeJs().
+    pattern-either:
+      - pattern: echo $_GET[...];
+      - pattern: echo $_POST[...];
+      - pattern: echo $_REQUEST[...];
+      - pattern: echo $X->getParam(...);
+      - pattern: echo $X->getRequest()->getParam(...);
+      - pattern: echo $X->getRequest()->getParams();
+      - pattern: echo $X->getPost(...);
+      - pattern: echo $X->getQuery(...);
+    paths:
+      exclude: ["**/Test/**"]
+
+  - id: ccua.xss-phtml-unescaped-getter
+    languages: [php]
+    severity: WARNING
+    message: Template output of a data getter without an escaper call.
+    metadata:
+      ccua_severity: MEDIUM
+      category: xss
+      remediation: Wrap in $escaper->escapeHtml() (or the context-appropriate escape method); use $block->getChildHtml() only for child blocks.
+    patterns:
+      - pattern: echo $BLOCK->$METHOD(...);
+      - metavariable-regex:
+          metavariable: $BLOCK
+          regex: ^\$(block|this|_?item|_?product|_?order|_?customer)$
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^get(?!(Child|Group|Layout|Form|Pager|Toolbar|Msrp)?Html$|.*Url$|FormKey$|Template$|NameInLayout$|Id$|Qty$|Price$|Count$)\w+$
+    paths:
+      include: ["*.phtml"]
+
+  - id: ccua.hardcoded-credential
+    languages: [php]
+    severity: ERROR
+    message: Credential, token or key literal assigned in code.
+    metadata:
+      ccua_severity: HIGH
+      category: insecure-configuration
+      remediation: Read secrets from encrypted system configuration or the deployment environment; never commit them.
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "...";
+          - pattern: $VAR = '...';
+          - pattern: const $VAR = "...";
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)^\$?\w*(password|passwd|secret|api_?key|crypt_?key|private_?key|access_?token|auth_?token)\w*$
+      - pattern-not: $VAR = "";
+      - pattern-not: $VAR = '';
+    paths:
+      exclude: ["**/Test/**"]
+
+  - id: ccua.admin-controller-allows-all
+    languages: [php]
+    severity: ERROR
+    message: Admin controller overrides _isAllowed() to always return true, removing ACL protection.
+    metadata:
+      ccua_severity: HIGH
+      category: authorization
+      remediation: Declare const ADMIN_RESOURCE with a specific acl.xml resource and remove the override.
+    pattern-either:
+      - pattern: |
+          function _isAllowed() { return true; }
+      - pattern: |
+          function _isAllowed(): bool { return true; }
+
+  - id: ccua.webapi-anonymous-write
+    languages: [generic]
+    severity: ERROR
+    message: Anonymous access on a state-changing web API route.
+    metadata:
+      ccua_severity: HIGH
+      category: authorization
+      remediation: Use a specific acl.xml resource (or ref="self" for customer-scoped routes) for POST/PUT/PATCH/DELETE routes.
+    pattern-regex: (?s)<route\b[^>]*method="(?:POST|PUT|PATCH|DELETE)"[^>]*>(?:(?!</route>).)*?<resource\s+ref="anonymous"\s*/>
+    paths:
+      include: ["**/webapi.xml"]
+
+  - id: ccua.webapi-anonymous-read
+    languages: [generic]
+    severity: WARNING
+    message: Anonymous read access on a web API route; confirm no private data is exposed.
+    metadata:
+      ccua_severity: MEDIUM
+      category: authorization
+      remediation: Restrict with an acl.xml resource unless the data is intentionally public.
+    pattern-regex: (?s)<route\b[^>]*method="GET"[^>]*>(?:(?!</route>).)*?<resource\s+ref="anonymous"\s*/>
+    paths:
+      include: ["**/webapi.xml"]
+
+  - id: ccua.di-security-preference
+    languages: [generic]
+    severity: WARNING
+    message: Preference overrides a framework security class. Requires human security approval.
+    metadata:
+      ccua_severity: MEDIUM
+      category: security-di-change
+      remediation: Prefer a narrowly scoped plugin or new service; obtain explicit human approval for any override of security classes.
+    pattern-regex: <preference\s+for="\\?Magento\\(?:Framework\\(?:Encryption|Acl|Security|Authorization)|Authorization|Integration|Vault|Payment|User\\Model|Customer\\Model\\(?:Authentication|AccountManagement)|Backend\\Model\\Auth)[\\A-Za-z0-9_]*"
+    paths:
+      include: ["**/di.xml"]
+
+  - id: ccua.di-security-plugin
+    languages: [generic]
+    severity: WARNING
+    message: Plugin attached to a framework security class. Requires human security approval.
+    metadata:
+      ccua_severity: MEDIUM
+      category: security-di-change
+      remediation: Confirm the plugin cannot weaken authentication, ACL, encryption or payment handling; obtain explicit human approval.
+    pattern-regex: (?s)<type\s+name="\\?Magento\\(?:Framework\\(?:Encryption|Acl|Security|Authorization)|Authorization|Integration|Vault|Payment|User\\Model|Customer\\Model\\(?:Authentication|AccountManagement)|Backend\\Model\\Auth)[\\A-Za-z0-9_]*"\s*>(?:(?!</type>).)*?<plugin\b
+    paths:
+      include: ["**/di.xml"]
+
+  - id: ccua.csp-wildcard-source
+    languages: [generic]
+    severity: ERROR
+    message: CSP policy allows any host.
+    metadata:
+      ccua_severity: HIGH
+      category: csp
+      remediation: Allow only the specific hosts required instead of a wildcard.
+    pattern-regex: <value\s+id="[^"]*"\s+type="host">\s*(?:\*|https?://\*)\s*</value>
+    paths:
+      include: ["**/csp_whitelist.xml"]
+
+  - id: ccua.template-inline-script
+    languages: [generic]
+    severity: WARNING
+    message: Inline script or event-handler attribute in a template is blocked by Magento's CSP.
+    metadata:
+      ccua_severity: MEDIUM
+      category: csp
+      remediation: Render through $secureRenderer->renderTag('script', ...) or renderEventListenerAsTag().
+    pattern-regex: (?:<script(?![^>]*\bsrc=)(?![^>]*type="text/x-magento-init")[^>]*>|\son(?:click|load|error|mouseover)\s*=\s*")
+    paths:
+      include: ["*.phtml"]
