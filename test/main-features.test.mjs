@@ -138,6 +138,25 @@ test('updater has no automatic hook merge or obsolete provisioning helper', () =
   assert.equal(existsSync(join(root, 'scripts/lib/merge-settings.mjs')), false)
 })
 
+for (const [, agentDir] of flavours) {
+  test(`${agentDir} version notice checks the official package and recommends npm-backed setup`, () => fixture(({ project, env }) => {
+    mkdirSync(join(project, agentDir, 'context'), { recursive: true })
+    writeFileSync(join(project, agentDir, 'context/.ccua-version'), '0.0.0\n')
+    const result = spawnSync(process.execPath, [join(root, agentDir, 'hooks/check-toolkit-version.mjs')], {
+      cwd: project, env, encoding: 'utf8', timeout: 10000,
+    })
+    assert.equal(result.status, 0, result.stderr)
+    const notice = JSON.parse(result.stdout)
+    assert.match(notice.systemMessage, /aio commerce upgrade tools-setup/)
+    assert.match(notice.hookSpecificOutput.additionalContext, /select the same agent/)
+    const repeated = spawnSync(process.execPath, [join(root, agentDir, 'hooks/check-toolkit-version.mjs')], {
+      cwd: project, env, encoding: 'utf8', timeout: 10000,
+    })
+    assert.equal(repeated.status, 0, repeated.stderr)
+    assert.equal(repeated.stdout, '')
+  }))
+}
+
 function checkIgnored(project, paths, initialize = false) {
   const git = (args, input) => spawnSync('git', ['-c', 'core.excludesFile=/dev/null', ...args], {
     cwd: project, env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' },
