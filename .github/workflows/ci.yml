@@ -2,10 +2,7 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: ['release/*']
-  schedule:
-    - cron: '23 3 * * *'
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -38,35 +35,14 @@ jobs:
 
       - name: Run encryption-safety checker (toolkit guardrail)
         env:
-          GH_EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
-          # Empty-tree SHA — explicitly supported by the checker for a full scan.
-          # Used when a push's "before" SHA is the all-zero sentinel (first push to a new
-          # branch/ref) so the checker does a deliberate full-addition scan instead of
-          # silently no-op'ing on an unresolvable base.
-          EMPTY_TREE_SHA=4b825dc642cb6eb9a060e54bf8d69288fbee4904
-          ALL_ZERO_SHA=0000000000000000000000000000000000000000
-          if [ "$GH_EVENT_NAME" = "pull_request" ]; then
-            BASE_REF="$PR_BASE_SHA"
-          elif [ "$GH_EVENT_NAME" = "push" ]; then
-            if [ -z "$PUSH_BEFORE_SHA" ] || [ "$PUSH_BEFORE_SHA" = "$ALL_ZERO_SHA" ]; then
-              BASE_REF="$EMPTY_TREE_SHA"
-            else
-              BASE_REF="$PUSH_BEFORE_SHA"
-            fi
-          elif [ "$GH_EVENT_NAME" = "schedule" ]; then
-            BASE_REF="$EMPTY_TREE_SHA"
-          else
-            echo "::error::check:encryption requires a pull_request, push, or schedule event — refusing to silently no-op."
-            exit 1
-          fi
+          BASE_REF="$PR_BASE_SHA"
           if [ -z "$BASE_REF" ]; then
             echo "::error::Could not resolve a base SHA for the encryption-safety checker — failing closed."
             exit 1
           fi
-          if [ "$BASE_REF" != "$EMPTY_TREE_SHA" ] && ! git cat-file -e "$BASE_REF^{commit}" 2>/dev/null; then
+          if ! git cat-file -e "$BASE_REF^{commit}" 2>/dev/null; then
             echo "::error::The encryption-safety base commit is unavailable. Fetch the event's base commit and retry; the scan cannot be skipped."
             exit 1
           fi
@@ -105,9 +81,8 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Semgrep security gate (High/Critical block)
-        if: github.event_name != 'schedule'
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           python .claude/scripts/security_gate.py changed-scan \

@@ -122,14 +122,15 @@ third-party commands, filenames, branch references, and URLs needed for compatib
 
 ## Continuous integration
 
-Pull requests and pushes to `main` or `release/*` run `npm test` on Node.js 22
+Pull requests opened, updated, reopened, or marked ready for review run `npm test` on Node.js 22
 (the declared minimum), including real Semgrep rule fixtures.
 CI also checks generated Copilot assets, secret/encryption safety, and dependencies.
 Magento Coding Standard and PHPCS module checks are not part of toolkit CI.
 Pull requests run CI without publishing. Merging into `release/*` triggers the
 separate standard publishing workflow, which installs dependencies and runs tests
-on Node.js 22 before publishing. Direct pushes to release branches also trigger it.
-Nightly CI runs the same containment tests. It is not an audit of an absent CodeGraph
+on Node.js 22 before publishing the exact merged commit. Branch creation, direct pushes,
+and PRs closed without merging do not publish. CI does not run on pushes or schedules.
+These checks are not an audit of an absent CodeGraph
 dependency: transitive audit, provenance, signed catalog and real sandbox gates remain
 pending until an independently reviewed profile/lock and trust anchor exist.
 
