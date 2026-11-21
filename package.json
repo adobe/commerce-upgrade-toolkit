@@ -88,6 +88,6 @@
   ],
   "dependencies": {
     "@oclif/core": "4.3.1",
-    "fs-extra": "11.3.6"
+    "fs-extra": "11.4.1"
   }
 }
