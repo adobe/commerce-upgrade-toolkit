@@ -6,12 +6,15 @@
 """Validate research URLs and fetch without following unchecked redirects."""
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
 import ssl
+import subprocess
 import sys
-from http.client import responses
+import tempfile
+from http.client import parse_headers, responses
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, HTTPSHandler, build_opener
@@ -68,7 +71,7 @@ def tls_context():
 def fetch(url):
     validate(url)
     opener = build_opener(NoRedirect(), HTTPSHandler(context=tls_context()))
-    for _ in range(6):
+    for attempt in range(6):
         validate(url)
         try:
             with opener.open(url, timeout=20) as response:
@@ -80,6 +83,10 @@ def fetch(url):
                         "retrieval_method": "controlled-http",
                         "untrusted_data": data.decode("utf-8", errors="strict")}
         except HTTPError as error:
+            if error.code == 403:
+                result = fetch_curl(url, max_requests=6 - attempt)
+                result["fallback_reason"] = {"error": "HTTPError", "status": 403}
+                return result
             if error.code not in (301, 302, 303, 307, 308):
                 raise
             location = error.headers.get("Location")
@@ -88,6 +95,63 @@ def fetch(url):
             # Validate before the next network request, not after fetching.
             url = validate(urljoin(url, location))
     raise ValueError("too many redirects")
+
+
+def fetch_curl(url, *, max_requests=6):
+    for _ in range(max_requests):
+        validate(url)
+        with tempfile.TemporaryDirectory(prefix="ccua-research-") as directory:
+            body_path = os.path.join(directory, "body")
+            headers_path = os.path.join(directory, "headers")
+            command = [
+                "curl", "--disable", "--silent", "--show-error", "--proto", "=https",
+                "--max-time", "20", "--max-filesize", "2000000", "--max-redirs", "0",
+                "--output", body_path, "--dump-header", headers_path,
+                "--write-out", "%{http_code}",
+            ]
+            for variable, flag in (("SSL_CERT_FILE", "--cacert"), ("SSL_CERT_DIR", "--capath")):
+                if os.environ.get(variable):
+                    command.extend([flag, os.environ[variable]])
+            command.extend(["--url", url])
+            try:
+                completed = subprocess.run(command, capture_output=True, timeout=25, check=False)
+            except subprocess.TimeoutExpired as error:
+                raise TimeoutError("Controlled curl retrieval timed out.") from error
+            if completed.returncode:
+                raise OSError(f"Controlled curl retrieval failed (exit {completed.returncode}): "
+                              f"{completed.stderr.decode('utf-8', errors='replace')[:1000]}")
+            status_text = completed.stdout.decode("ascii", errors="strict")
+            if not re.fullmatch(r"[0-9]{3}", status_text):
+                raise ValueError("Invalid HTTP status from controlled curl retrieval.")
+            status = int(status_text)
+            if status in (301, 302, 303, 307, 308):
+                with open(headers_path, "rb") as stream:
+                    headers_data = stream.read(65_537)
+                if len(headers_data) > 65_536:
+                    raise ValueError("Research response headers exceed size limit.")
+                blocks = [block for block in headers_data.split(b"\r\n\r\n") if block.strip()]
+                if not blocks:
+                    raise ValueError("Redirect without response headers.")
+                status_line, separator, header_lines = blocks[-1].partition(b"\r\n")
+                if not separator or not re.match(rb"HTTP/\S+ " + str(status).encode() + rb"(?: |$)",
+                                                 status_line):
+                    raise ValueError("Invalid redirect response headers.")
+                headers = parse_headers(io.BytesIO(header_lines + b"\r\n\r\n"))
+                locations = headers.get_all("Location", [])
+                if len(locations) != 1:
+                    raise ValueError("Redirect requires exactly one target.")
+                url = validate(urljoin(url, locations[0]))
+                continue
+            if status != 200:
+                raise HTTPError(url, status, responses.get(status, "HTTP request rejected"), {}, None)
+            with open(body_path, "rb") as stream:
+                data = stream.read(2_000_001)
+            if len(data) > 2_000_000:
+                raise ValueError("Research response exceeds size limit.")
+            return {"url": url, "sha256": hashlib.sha256(data).hexdigest(),
+                    "retrieval_method": "controlled-curl",
+                    "untrusted_data": data.decode("utf-8", errors="strict")}
+    raise ValueError("Too many redirects in controlled curl retrieval.")
 
 
 def escaped_json(value):

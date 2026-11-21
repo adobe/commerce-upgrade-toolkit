@@ -352,6 +352,122 @@ except ValueError: pass
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('controlled fetch retries only Python 403 with a recorded curl retrieval method', () => {
+  const result = python(['-c', `
+import importlib.util, hashlib
+from unittest.mock import patch
+from urllib.error import HTTPError, URLError
+spec = importlib.util.spec_from_file_location("research_url", ".claude/scripts/research_url.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+url = "https://experienceleague.adobe.com/en/docs/commerce-admin/systems/security/encryption-key"
+class Opener:
+    def open(self, url, timeout):
+        raise HTTPError(url, 403, "Forbidden", {}, None)
+evidence = {"url": url, "sha256": hashlib.sha256(b"docs").hexdigest(),
+            "retrieval_method": "controlled-curl", "untrusted_data": "docs"}
+with patch.object(m, "build_opener", return_value=Opener()), \\
+     patch.object(m, "fetch_curl", return_value=evidence.copy()) as curl:
+    data = m.fetch(url)
+    curl.assert_called_once_with(url, max_requests=6)
+    assert data["retrieval_method"] == "controlled-curl"
+    assert data["fallback_reason"] == {"error": "HTTPError", "status": 403}
+for failure in [HTTPError(url, 401, "Unauthorized", {}, None), URLError("TLS failure")]:
+    class Rejected:
+        def open(self, url, timeout): raise failure
+    with patch.object(m, "build_opener", return_value=Rejected()), \\
+         patch.object(m, "fetch_curl") as curl:
+        try:
+            m.fetch(url)
+            raise AssertionError("non-403 failure accepted")
+        except (HTTPError, URLError): pass
+        curl.assert_not_called()
+`]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('controlled curl validates redirects, hashes bounded content, and fails closed', () => {
+  const result = python(['-c', `
+import importlib.util, hashlib, os, subprocess
+from unittest.mock import patch
+from urllib.error import HTTPError
+spec = importlib.util.spec_from_file_location("research_url", ".claude/scripts/research_url.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+url = "https://developer.adobe.com/commerce/"
+calls = []
+redirect = "/commerce/php/"
+body = b"official documentation"
+status = 302
+def run(command, **kwargs):
+    global status
+    calls.append(command[command.index("--url") + 1])
+    assert command[:2] == ["curl", "--disable"]
+    assert "--location" not in command and "--insecure" not in command
+    assert "--cookie" not in command and "--user" not in command and "--user-agent" not in command
+    assert command[command.index("--proto") + 1] == "=https"
+    assert command[command.index("--max-redirs") + 1] == "0"
+    assert command[command.index("--cacert") + 1] == "/approved/ca.pem"
+    assert kwargs["timeout"] == 25 and kwargs["check"] is False
+    with open(command[command.index("--output") + 1], "wb") as stream: stream.write(body)
+    with open(command[command.index("--dump-header") + 1], "wb") as stream:
+        stream.write(f"HTTP/1.1 {status} Response\\r\\nLocation: {redirect}\\r\\n\\r\\n".encode())
+    returned = status
+    status = 200
+    return subprocess.CompletedProcess(command, 0, str(returned).encode(), b"")
+with patch.dict(os.environ, {"SSL_CERT_FILE": "/approved/ca.pem"}, clear=True), \\
+     patch.object(m.subprocess, "run", side_effect=run):
+    data = m.fetch_curl(url)
+    assert calls == [url, url + "php/"]
+    assert data["url"] == url + "php/"
+    assert data["sha256"] == hashlib.sha256(body).hexdigest()
+    assert data["untrusted_data"] == body.decode()
+    assert data["retrieval_method"] == "controlled-curl"
+    calls.clear(); status = 302; redirect = "https://attacker.example/steal"
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("off-list redirect followed")
+    except ValueError: pass
+    assert calls == [url]
+    calls.clear(); status = 302; redirect = "/commerce/php/"
+    try:
+        m.fetch_curl(url, max_requests=1)
+        raise AssertionError("redirect budget exceeded")
+    except ValueError: pass
+    assert calls == [url]
+    status = 403
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("curl 403 accepted")
+    except HTTPError as error: assert error.code == 403
+    status = 200; body = b"x" * 2_000_001
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("oversized content accepted")
+    except ValueError as error: assert "size limit" in str(error)
+    body = b"\\xff"
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("invalid UTF-8 accepted")
+    except UnicodeError: pass
+with patch.object(m.subprocess, "run", side_effect=FileNotFoundError("curl not found")):
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("missing curl accepted")
+    except FileNotFoundError: pass
+with patch.object(m.subprocess, "run",
+                  return_value=subprocess.CompletedProcess([], 60, b"000", b"TLS verification failed")):
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("curl TLS failure accepted")
+    except OSError as error: assert "exit 60" in str(error) and "TLS" in str(error)
+with patch.object(m.subprocess, "run", side_effect=subprocess.TimeoutExpired("curl", 25)):
+    try:
+        m.fetch_curl(url)
+        raise AssertionError("curl timeout accepted")
+    except TimeoutError: pass
+`]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('controlled fetch selects a trusted system CA store without weakening TLS', () => {
   const result = python(['-c', `
 import importlib.util, ssl

@@ -7,6 +7,11 @@ Release history for `@adobe/commerce-upgrade-toolkit`.
 - Allow the approved parent to persist reviewed reports when the documentation agent lacks write tools.
 - Require report read-back verification before reporting success, linking reports, or converting print HTML.
 - Use the installed toolkit version in roadmap reports instead of a hardcoded value.
+## [1.0.4]
+
+- Automatically retry Python HTTP 403 documentation failures through controlled curl.
+- Preserve TLS verification, URL and redirect checks, and response size limits; record the retrieval method, content hash, and original failure.
+- Document research prerequisites and fallback troubleshooting.
 
 ## [1.0.3]
 
