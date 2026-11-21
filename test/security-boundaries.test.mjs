@@ -375,6 +375,15 @@ test('canonical and generated research/edit/execute grants are separated', () =>
   const generatedDocumentation = read('.github/agents/commerce-documentation-engineer.agent.md').split('---')[1];
   assert.doesNotMatch(documentation, /Bash/);
   assert.doesNotMatch(generatedDocumentation.match(/^tools:.*$/m)?.[0], /\bexecute\b/);
+  const documentTools = generatedDocumentation.match(/^tools: (.*)$/m)[1].split(', ');
+  for (const tool of ['read', 'view', 'edit', 'apply_patch']) {
+    assert.ok(documentTools.includes(tool), `documentation agent must expose ${tool}`);
+  }
+  assert.equal(documentTools.length, 4, 'documentation agent must not gain unrelated tools');
+  for (const name of ['commerce-upgrade-researcher', 'commerce-architect',
+    'commerce-frontend-developer', 'commerce-security-reviewer']) {
+    assert.doesNotMatch(read(`.github/agents/${name}.agent.md`).split('---')[1], /apply_patch/);
+  }
   const settings = JSON.parse(read('.claude/settings.json'));
   assert.ok(settings.permissions.allow.includes('Bash(bin/magento --version)'));
   assert.ok(settings.permissions.allow.includes('Bash(vendor/bin/phpunit *)'));
