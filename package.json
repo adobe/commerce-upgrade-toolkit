@@ -1,5 +1,5 @@
 {
-  "name": "@adobe-commerce/commerce-upgrade-toolkit",
+  "name": "@adobe/commerce-upgrade-toolkit",
   "version": "1.0.0",
   "description": "AI-guided, developer-approved Adobe Commerce PaaS upgrades with Claude Code or GitHub Copilot — hop planning, UCT scanning, remediation, and deployment preparation.",
   "commerceUpgradeToolkit": {

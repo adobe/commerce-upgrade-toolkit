@@ -21,7 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 
-const PACKAGE_NAME = '@adobe-commerce/commerce-upgrade-toolkit';
+const PACKAGE_NAME = '@adobe/commerce-upgrade-toolkit';
 const NPM_VIEW_TIMEOUT_MS = 3000;
 
 const projectRoot = process.cwd();

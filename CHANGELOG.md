@@ -1,6 +1,6 @@
 # Changelog
 
-Release history for `@adobe-commerce/commerce-upgrade-toolkit`.
+Release history for `@adobe/commerce-upgrade-toolkit`.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
