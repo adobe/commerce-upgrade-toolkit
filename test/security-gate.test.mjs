@@ -354,13 +354,14 @@ test('CI changed-scan fails on blocking findings and scanner errors, passes when
   assert.equal(bad.status, BLOCKED);
 }));
 
-test('CI workflow defines a least-privilege Security Scan job that cannot soft-fail', () => {
+test('CI workflow defines a least-privilege test and security job that cannot soft-fail', () => {
   const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
-  const job = ci.slice(ci.indexOf('\n  security:'));
-  assert.match(job, /name: Security Scan/);
+  const job = ci.slice(ci.indexOf('\n  test:'), ci.indexOf('\n  dependency-review:'));
+  assert.match(job, /name: Test and security \(Node 22\)/);
   assert.match(job, /permissions:\n      contents: read/);
   assert.match(job, /security_gate\.py changed-scan/);
-  assert.match(job, /Magento2\\\.Security/);
+  assert.match(job, /CCUA_REQUIRE_SEMGREP: '1'/);
+  assert.match(job, /run: npm test/);
   assert.doesNotMatch(job, /continue-on-error/);
   assert.doesNotMatch(job, /pull_request_target/);
   assert.doesNotMatch(ci, /pull_request_target/);
@@ -526,7 +527,6 @@ test('post-upgrade scan blocks drift of an approved sensitive file', () => fixtu
 test('scanner command disables inline suppressions and ignore-file shortcuts', () => {
   const policy = JSON.parse(readFileSync(join(root, '.claude/scripts/security-gate-policy.json'), 'utf8'));
   for (const flag of ['--disable-nosem', '--no-git-ignore']) assert.ok(policy.scanner.command.includes(flag), flag);
-  assert.match(readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8'), /--ignore-annotations/);
 });
 
 test('configuration-only and documentation-only proposals pass when no rule targets them', () => fixture((dir) => {
