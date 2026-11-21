@@ -12,7 +12,7 @@ to [Grp-opensourceoffice@adobe.com](mailto:Grp-opensourceoffice@adobe.com).
 
 ## Questions and proposals
 
-Search existing [issues](https://github.com/OneAdobe/project-ccua/issues) before
+Search existing [issues](https://github.com/adobe/commerce-upgrade-toolkit/issues) before
 opening a new one. Discuss substantial changes with maintainers before implementation.
 
 This toolkit focuses on Adobe Commerce / Magento 2 version upgrades: hop planning,
@@ -36,11 +36,11 @@ third-party material introduced by your change.
 
 ## Local development
 
-Use Node.js >= 18 and npm:
+Use Node.js >= 22 and npm:
 
 ```bash
-git clone https://github.com/OneAdobe/project-ccua.git
-cd project-ccua
+git clone https://github.com/adobe/commerce-upgrade-toolkit.git
+cd commerce-upgrade-toolkit
 npm ci
 npm test
 ```
@@ -122,9 +122,11 @@ third-party commands, filenames, branch references, and URLs needed for compatib
 
 ## Continuous integration
 
-Pull requests run `npm test` on Node.js 18 (the declared minimum), 22, and 24.
+Pull requests and pushes to `main` or `release/*` run `npm test` on Node.js 22
+(the declared minimum) and 24.
 CI also regenerates Copilot assets and checks that their tracked files are current.
-The publishing workflow runs these checks on Node.js 22 before publishing.
+The separate standard publishing workflow runs installation and tests on Node.js 22
+before publishing.
 Nightly CI runs the same containment tests. It is not an audit of an absent CodeGraph
 dependency: transitive audit, provenance, signed catalog and real sandbox gates remain
 pending until an independently reviewed profile/lock and trust anchor exist.
