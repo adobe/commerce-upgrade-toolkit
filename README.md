@@ -25,7 +25,7 @@ Use a local or development environment only, without production access or produc
 
 ## Installation
 
-> **Release status:** `@adobe-commerce/commerce-upgrade-toolkit@1.0.0` and the new Commerce CLI command are not yet published. The instructions below require both releases. The previous `@adobe-thillai/aio-cli-plugin-ccua` package is not the download target for this setup flow.
+> **Release status:** `@adobe/commerce-upgrade-toolkit@1.0.0` and the new Commerce CLI command are not yet published. The instructions below require both releases. The previous `@adobe-thillai/aio-cli-plugin-ccua` package is not the download target for this setup flow.
 
 The Commerce CLI provides the setup command and downloads the toolkit from npm. No separate upgrade-toolkit plugin installation is needed.
 
@@ -62,7 +62,7 @@ Which coding agent would you like to install the upgrade toolkit for?
   Claude Code
 ```
 
-Setup downloads [`@adobe-commerce/commerce-upgrade-toolkit`](https://www.npmjs.com/package/@adobe-commerce/commerce-upgrade-toolkit) from npm, installs the selected agent's workflows in the working directory, and verifies the installation. It does not clone a starter kit, configure Adobe Developer Console credentials, or change your project's npm dependencies or lock file.
+Setup downloads [`@adobe/commerce-upgrade-toolkit`](https://www.npmjs.com/package/@adobe/commerce-upgrade-toolkit) from npm, installs the selected agent's workflows in the working directory, and verifies the installation. It does not clone a starter kit, configure Adobe Developer Console credentials, or change your project's npm dependencies or lock file.
 
 | Agent | Files installed |
 | --- | --- |
