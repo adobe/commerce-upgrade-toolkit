@@ -153,3 +153,4 @@ AgentSelect.flags = {
 }
 
 module.exports = AgentSelect
+module.exports.promptForAgent = promptForAgent
