@@ -32,7 +32,7 @@ const githubDir = path.join(root, '.github')
 // report assets, so all become Skills rather than Prompts — there is no simple one-shot command
 // in this toolkit that maps cleanly to a Copilot .prompt.md file.
 const SKILL_COMMANDS = new Set([
-  'upgrade-hop', 'upgrade-hop-execute', 'upgrade-deploy-prep', 'upgrade-rollback'
+  'upgrade-hop', 'upgrade-hop-execute', 'upgrade-deploy-prep', 'upgrade-assess', 'upgrade-rollback'
 ])
 
 // context/*.html templates that move under their owning skill's assets/ folder.

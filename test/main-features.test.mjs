@@ -23,7 +23,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const require = createRequire(import.meta.url)
 const oclif = require.resolve('@oclif/core')
 const { name: packageName, version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-const commands = ['upgrade-hop', 'upgrade-hop-execute', 'upgrade-deploy-prep']
+const commands = ['upgrade-hop', 'upgrade-hop-execute', 'upgrade-deploy-prep', 'upgrade-assess']
 const flavours = [['claude-code', '.claude'], ['github-copilot', '.github']]
 
 function fixture(run) {
