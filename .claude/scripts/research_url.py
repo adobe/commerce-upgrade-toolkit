@@ -7,11 +7,14 @@
 import argparse
 import hashlib
 import json
+import os
 import re
+import ssl
 import sys
-from urllib.error import HTTPError
+from http.client import responses
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
-from urllib.request import HTTPRedirectHandler, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, build_opener
 
 PATHS = {
     "developer.adobe.com": r"/commerce(?:/.*)?",
@@ -44,8 +47,27 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def tls_context():
+    if os.environ.get("SSL_CERT_FILE") or os.environ.get("SSL_CERT_DIR"):
+        return ssl.create_default_context(cafile=os.environ.get("SSL_CERT_FILE"),
+                                          capath=os.environ.get("SSL_CERT_DIR"))
+    context = ssl.create_default_context()
+    if context.get_ca_certs():
+        return context
+    # Some standalone Python installations do not discover the OS trust bundle.
+    for bundle in ("/etc/ssl/cert.pem", "/etc/ssl/certs/ca-certificates.crt",
+                   "/etc/pki/tls/certs/ca-bundle.crt"):
+        if os.path.isfile(bundle):
+            context.load_verify_locations(cafile=bundle)
+            if context.get_ca_certs():
+                return context
+    raise ssl.SSLError("No trusted CA certificates found; configure SSL_CERT_FILE "
+                       "or SSL_CERT_DIR with your approved CA trust store.")
+
+
 def fetch(url):
-    opener = build_opener(NoRedirect())
+    validate(url)
+    opener = build_opener(NoRedirect(), HTTPSHandler(context=tls_context()))
     for _ in range(6):
         validate(url)
         try:
@@ -55,6 +77,7 @@ def fetch(url):
                 if len(data) > 2_000_000:
                     raise ValueError("research response exceeds size limit")
                 return {"url": url, "sha256": hashlib.sha256(data).hexdigest(),
+                        "retrieval_method": "controlled-http",
                         "untrusted_data": data.decode("utf-8", errors="strict")}
         except HTTPError as error:
             if error.code not in (301, 302, 303, 307, 308):
@@ -67,6 +90,11 @@ def fetch(url):
     raise ValueError("too many redirects")
 
 
+def escaped_json(value):
+    return (json.dumps(value, ensure_ascii=True).replace("<", "\\u003c")
+            .replace(">", "\\u003e").replace("&", "\\u0026"))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("validate", "fetch"))
@@ -74,11 +102,17 @@ def main():
     args = parser.parse_args()
     try:
         result = {"url": validate(args.url)} if args.action == "validate" else fetch(args.url)
-        print(json.dumps(result, ensure_ascii=True).replace("<", "\\u003c")
-              .replace(">", "\\u003e").replace("&", "\\u0026"))
+        print(escaped_json(result))
         return 0
-    except (ValueError, OSError, UnicodeError):
-        print("Research source rejected or unavailable; stop affected research.", file=sys.stderr)
+    except (ValueError, OSError, UnicodeError, URLError) as error:
+        cause = error.reason if isinstance(error, URLError) else error
+        if isinstance(error, HTTPError):
+            diagnostic = {"error": "HTTPError", "status": error.code,
+                          "message": responses.get(error.code, "HTTP request rejected")}
+        else:
+            diagnostic = {"error": type(cause).__name__, "message": str(cause)}
+        diagnostic["research_status"] = "unverified"
+        print(escaped_json(diagnostic), file=sys.stderr)
         return 1
 
 

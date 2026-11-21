@@ -2,6 +2,12 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
+## [1.0.2]
+
+- Use an available trusted CA store for documentation retrieval while retaining TLS verification.
+- Report HTTP and TLS retrieval failures distinctly.
+- Allow reviewed browser/manual-document evidence with official URLs, content hashes, and retrieval methods while preserving URL and redirect checks.
+
 ## [1.0.1]
 
 - Add toolkit-owned `aio commerce upgrade tools-setup` with npm download, agent selection, setup/update, and integrity verification.
