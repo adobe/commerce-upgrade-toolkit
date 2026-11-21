@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync,
-  readdirSync, existsSync, linkSync, unlinkSync } from 'node:fs';
+  readdirSync, existsSync, linkSync, unlinkSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -458,11 +458,16 @@ function generatedSnapshot(dir = join(root, '.github')) {
   }).sort(([a], [b]) => a.localeCompare(b));
 }
 
-test('regenerating GitHub assets is idempotent and preserves canonical parity', () => {
-  const before = generatedSnapshot();
+test('regenerating GitHub assets is idempotent and preserves canonical parity', () => fixture((dir) => {
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  for (const file of ['.claude', '.github', 'CLAUDE.md', 'scripts/generate-github-assets.mjs']) {
+    cpSync(join(root, file), join(dir, file), { recursive: true });
+  }
+  const githubDir = join(dir, '.github');
+  const before = generatedSnapshot(githubDir);
   const result = spawnSync(process.execPath, ['scripts/generate-github-assets.mjs'], {
-    cwd: root, encoding: 'utf8', timeout: 30000,
+    cwd: dir, encoding: 'utf8', timeout: 30000,
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(generatedSnapshot(), before);
-});
+  assert.deepEqual(generatedSnapshot(githubDir), before);
+}));

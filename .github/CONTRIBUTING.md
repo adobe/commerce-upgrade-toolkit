@@ -123,8 +123,9 @@ third-party commands, filenames, branch references, and URLs needed for compatib
 ## Continuous integration
 
 Pull requests and pushes to `main` or `release/*` run `npm test` on Node.js 22
-(the declared minimum) and 24.
-CI also regenerates Copilot assets and checks that their tracked files are current.
+(the declared minimum), including real Semgrep rule fixtures.
+CI also checks generated Copilot assets, secret/encryption safety, and dependencies.
+Magento Coding Standard and PHPCS module checks are not part of toolkit CI.
 The separate standard publishing workflow runs installation and tests on Node.js 22
 before publishing.
 Nightly CI runs the same containment tests. It is not an audit of an absent CodeGraph

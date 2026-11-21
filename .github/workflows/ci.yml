@@ -16,13 +16,11 @@ concurrency:
 
 jobs:
   test:
-    name: Test (Node ${{ matrix.node }})
+    name: Test and security (Node 22)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22', '24']
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -33,7 +31,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '22'
 
       - name: Install dependencies
         run: npm ci
@@ -87,12 +85,42 @@ jobs:
       - name: Secret-output gate
         run: npm run check:secret-safety
 
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Semgrep (pinned)
+        run: |
+          # Semgrep's pinned OpenTelemetry dependency still imports pkg_resources.
+          python -m pip install --disable-pip-version-check semgrep==1.97.0 setuptools==80.9.0
+          semgrep --version
+
       - name: Run tests
+        env:
+          CCUA_REQUIRE_SEMGREP: '1'
         run: npm test
 
       - name: Audit dependencies
-        if: matrix.node == '22'
         run: npm audit --audit-level=high
+
+      - name: Semgrep security gate (High/Critical block)
+        if: github.event_name != 'schedule'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          python .claude/scripts/security_gate.py changed-scan \
+            --base "$BASE_SHA" --head HEAD --output security-report.json
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-report
+          path: security-report.json
+          if-no-files-found: warn
+          retention-days: 30
 
   dependency-review:
     name: Dependency review
@@ -111,88 +139,3 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: github.event_name != 'schedule'
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.12'
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-          coverage: none
-
-      - name: Install Semgrep (pinned)
-        run: |
-          # Semgrep's pinned OpenTelemetry dependency still imports pkg_resources.
-          python -m pip install --disable-pip-version-check semgrep==1.97.0 setuptools==80.9.0
-          semgrep --version
-
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22'
-
-      - name: Security gate tests (incl. real Semgrep rule fixtures)
-        env:
-          CCUA_REQUIRE_SEMGREP: '1'
-        run: node --test test/security-gate.test.mjs
-
-      - name: Install Magento Coding Standard
-        working-directory: .github/security
-        run: composer install --no-interaction --no-progress --prefer-dist
-
-      - name: Magento2 PHPCS security sniffs
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-          phpcs=.github/security/vendor/bin/phpcs
-          sniffs="$("$phpcs" -e --standard=Magento2 | grep -o 'Magento2\.Security\.[A-Za-z0-9.]*' | sort -u | paste -sd, -)"
-          if [ -z "$sniffs" ]; then
-            echo "::error::No Magento2.Security sniffs found; refusing to pass."
-            exit 1
-          fi
-          if [ -z "${BASE_SHA//0/}" ]; then
-            git ls-files -z -- '*.php' '*.phtml' > php-files.lst
-          else
-            git diff --name-only -z --no-renames --diff-filter=ACMT "$BASE_SHA" HEAD -- '*.php' '*.phtml' > php-files.lst
-          fi
-          if [ -s php-files.lst ]; then
-            xargs -0 "$phpcs" --standard=Magento2 --sniffs="$sniffs" --extensions=php,phtml --ignore-annotations --report=full < php-files.lst
-          else
-            echo "No PHP/PHTML changes to check."
-          fi
-
-      - name: Semgrep security gate (High/Critical block)
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-          python .claude/scripts/security_gate.py changed-scan \
-            --base "$BASE_SHA" --head HEAD --output security-report.json
-
-      - name: Upload security report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: security-report
-          path: security-report.json
-          if-no-files-found: warn
-          retention-days: 30

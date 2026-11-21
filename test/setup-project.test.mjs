@@ -205,7 +205,8 @@ for (const [agent, agentDir] of [['claude-code', '.claude'], ['github-copilot', 
 test('integrity: update reports/repairs tampered and injected instruction files', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ccua-integrity-'));
   try {
-    assert.equal(runSetup(dir, ['--agent', 'github-copilot', '--install-type', 'fresh', '--environment', 'bare-metal']).status, 0);
+    const setup = runSetup(dir, ['--agent', 'github-copilot', '--install-type', 'fresh', '--environment', 'bare-metal']);
+    assert.equal(setup.status, 0, setup.stderr);
     const verify = () => spawnSync(process.execPath, [join(repoRoot, 'scripts', 'verify-integrity.mjs'), '--project', dir], { encoding: 'utf8' });
     assert.equal(verify().status, 0);
 
@@ -232,7 +233,8 @@ test('integrity: update reports/repairs tampered and injected instruction files'
 });
 
 function setupGithub(dir) {
-  assert.equal(runSetup(dir, ['--agent', 'github-copilot', '--install-type', 'fresh', '--environment', 'bare-metal']).status, 0);
+  const setup = runSetup(dir, ['--agent', 'github-copilot', '--install-type', 'fresh', '--environment', 'bare-metal']);
+  assert.equal(setup.status, 0, setup.stderr);
 }
 const runUpdate = (dir) => spawnSync(process.execPath, [join(repoRoot, 'scripts', 'update-project.mjs'), '--project', dir], { encoding: 'utf8' });
 
