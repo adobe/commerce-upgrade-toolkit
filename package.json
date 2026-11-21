@@ -1,6 +1,6 @@
 {
   "name": "@adobe/commerce-upgrade-toolkit",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "AI-guided, developer-approved Adobe Commerce PaaS upgrades with Claude Code or GitHub Copilot — hop planning, UCT scanning, remediation, and deployment preparation.",
   "commerceUpgradeToolkit": {
     "installerApiVersion": 1
