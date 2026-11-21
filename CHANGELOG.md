@@ -2,6 +2,10 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
+## [1.0.3]
+
+- Add explicit SDK read/write tools for the documentation agent while preserving document-only scope.
+- Clarify report writing with the available host tool and require successful writes before reporting completion.
 ## [1.0.2]
 
 - Use an available trusted CA store for documentation retrieval while retaining TLS verification.
