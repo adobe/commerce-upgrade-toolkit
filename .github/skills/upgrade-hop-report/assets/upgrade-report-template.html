@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<!--
+Copyright 2026 Adobe. All rights reserved.
+This file is licensed to you under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License. You may obtain a copy
+of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under
+the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+OF ANY KIND, either express or implied. See the License for the specific language
+governing permissions and limitations under the License.
+SPDX-License-Identifier: Apache-2.0
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Commerce Upgrade Roadmap — {{FROM_VERSION}} → {{TO_VERSION}}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #1a1a2e; background: #f4f6f9; }
+  a { color: #e04e39; text-decoration: none; }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: #1a1a2e; color: #cdd0d4; padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid #2e3150; margin-bottom: 16px; }
+  .sidebar-logo .brand { font-size: 13px; font-weight: 700; color: #e04e39; letter-spacing: .5px; text-transform: uppercase; }
+  .sidebar-logo .sub { font-size: 11px; color: #7a7d99; margin-top: 2px; }
+  .sidebar nav a { display: block; padding: 8px 20px; font-size: 13px; color: #9da0bb; border-left: 3px solid transparent; transition: all .15s; }
+  .sidebar nav a:hover, .sidebar nav a.active { color: #fff; background: rgba(224,78,57,.1); border-left-color: #e04e39; }
+  .main { flex: 1; padding: 32px 40px; max-width: 1100px; }
+
+  /* Header */
+  .report-header { background: #fff; border-radius: 10px; padding: 28px 32px; margin-bottom: 24px; border: 1px solid #e2e5ec; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .report-header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+  .report-header .meta { font-size: 12px; color: #6b7280; margin-top: 6px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .badge-tier-minimal { background: #d1fae5; color: #065f46; }
+  .badge-tier-low    { background: #d1fae5; color: #065f46; }
+  .badge-tier-medium { background: #fef3c7; color: #92400e; }
+  .badge-tier-high   { background: #fee2e2; color: #991b1b; }
+  .badge-tier-veryhigh { background: #f3e8ff; color: #6b21a8; }
+  .badge-default     { background: #e0e7ff; color: #3730a3; }
+
+  /* Section cards */
+  .section { background: #fff; border-radius: 10px; border: 1px solid #e2e5ec; margin-bottom: 24px; overflow: hidden; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #f0f2f7; cursor: pointer; user-select: none; }
+  .section-header h2 { font-size: 15px; font-weight: 600; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+  .section-header .icon { font-size: 18px; }
+  .section-body { padding: 20px 24px; }
+  .section-body.collapsed { display: none; }
+  .toggle-btn { background: none; border: none; color: #9ca3af; font-size: 18px; cursor: pointer; line-height: 1; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; background: #f8f9fb; color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid #e2e5ec; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f2f7; color: #374151; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbfd; }
+
+  /* Tier badges in table */
+  .tier { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .tier-Minimal, .tier-Low { background: #d1fae5; color: #065f46; }
+  .tier-Medium { background: #fef3c7; color: #92400e; }
+  .tier-High   { background: #fee2e2; color: #991b1b; }
+  .tier-Very-High { background: #f3e8ff; color: #6b21a8; }
+
+  /* Hop progress */
+  .hop-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .hop-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e5ec; font-size: 13px; }
+  .hop-item.complete  { background: #f0fdf4; border-color: #86efac; }
+  .hop-item.analysed  { background: #fffaf0; border-color: #fed7aa; }
+  .hop-item.planned   { background: #f8f9fb; }
+  .hop-item .status-icon { font-size: 16px; flex-shrink: 0; }
+  .hop-item .hop-label { font-weight: 600; color: #1a1a2e; }
+  .hop-item .hop-desc { color: #6b7280; font-size: 12px; margin-top: 1px; }
+  .hop-item .hop-link { font-size: 12px; font-weight: 600; }
+
+  /* Footer */
+  .report-footer { text-align: center; font-size: 11px; color: #9ca3af; padding: 24px 0; border-top: 1px solid #e2e5ec; margin-top: 8px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand">Commerce Compass</div>
+      <div class="sub">Upgrade Roadmap</div>
+    </div>
+    <nav>
+      <a href="#hop-plan">Hop Plan</a>
+      <a href="#hop-progress">Hop Progress</a>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Report header -->
+    <div class="report-header">
+      <div>
+        <h1>Upgrade Roadmap: {{FROM_VERSION}} → {{TO_VERSION}}</h1>
+        <div class="meta">Generated {{REPORT_DATE}} &nbsp;·&nbsp; Toolkit v{{TOOLKIT_VERSION}} &nbsp;·&nbsp; Detailed findings per hop live in the separate hop-version reports linked below</div>
+      </div>
+      <div>
+        <span class="badge badge-default">Highest effort: {{EFFORT_TIER}}</span>
+      </div>
+    </div>
+
+    <!-- Section 1: Hop Plan -->
+    <div class="section" id="hop-plan">
+      <div class="section-header" onclick="toggle(this)">
+        <h2><span class="icon">🗺️</span> Hop Plan</h2>
+        <button class="toggle-btn">▾</button>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>From</th>
+              <th>To</th>
+              <th>Effort</th>
+              <th>Reason (boundary logic)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{HOP_PLAN_ROWS}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 2: Hop Progress -->
+    <div class="section" id="hop-progress">
+      <div class="section-header" onclick="toggle(this)">
+        <h2><span class="icon">📍</span> Hop Progress</h2>
+        <button class="toggle-btn">▾</button>
+      </div>
+      <div class="section-body">
+        <ul class="hop-list">
+          {{HOP_PROGRESS_ROWS}}
+        </ul>
+      </div>
+    </div>
+
+    <div class="report-footer">
+      Generated by Commerce Compass &nbsp;·&nbsp; v{{TOOLKIT_VERSION}}
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function toggle(header) {
+    var body = header.nextElementSibling;
+    var btn  = header.querySelector('.toggle-btn');
+    var collapsed = body.classList.toggle('collapsed');
+    btn.textContent = collapsed ? '▸' : '▾';
+  }
+
+  // Highlight active sidebar link on scroll
+  var sections = document.querySelectorAll('.section');
+  var navLinks  = document.querySelectorAll('.sidebar nav a');
+  window.addEventListener('scroll', function () {
+    var scrollY = window.scrollY + 80;
+    sections.forEach(function (sec) {
+      if (sec.offsetTop <= scrollY && sec.offsetTop + sec.offsetHeight > scrollY) {
+        navLinks.forEach(function (a) { a.classList.remove('active'); });
+        var link = document.querySelector('.sidebar nav a[href="#' + sec.id + '"]');
+        if (link) link.classList.add('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>

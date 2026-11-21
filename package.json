@@ -1,0 +1,93 @@
+{
+  "name": "@adobe/commerce-upgrade-toolkit",
+  "version": "1.0.1",
+  "description": "AI-guided, developer-approved Adobe Commerce PaaS upgrades with Claude Code or GitHub Copilot — hop planning, UCT scanning, remediation, and deployment preparation.",
+  "commerceUpgradeToolkit": {
+    "installerApiVersion": 1
+  },
+  "scripts": {
+    "setup:project": "node scripts/setup-project.mjs",
+    "setup:project:self": "node scripts/setup-project.mjs --project .",
+    "update:project": "node scripts/update-project.mjs",
+    "update:project:self": "node scripts/update-project.mjs --project .",
+    "verify:integrity": "node scripts/verify-integrity.mjs",
+    "generate:github": "node scripts/generate-github-assets.mjs",
+    "export:assessment": "node scripts/export-assessment.mjs",
+    "check:encryption": "node .claude/scripts/check-encryption-changes.mjs",
+    "check:secret-safety": "node scripts/check-secret-safety.mjs",
+    "test": "node --test"
+  },
+  "oclif": {
+    "bin": "aio",
+    "topicSeparator": " ",
+    "commands": "./src/commands",
+    "topics": {
+      "commerce": {
+        "description": "Adobe Commerce developer tools"
+      },
+      "commerce upgrade": {
+        "description": "Install and update Adobe Commerce upgrade workflows"
+      },
+      "ccua": {
+        "description": "Adobe Commerce Upgrade Toolkit — install and update Claude Code or GitHub Copilot upgrade workflows in a Commerce project"
+      },
+      "ccua agent": {
+        "description": "Choose and install the agent toolkit flavour (Claude Code or GitHub Copilot)"
+      }
+    }
+  },
+  "keywords": [
+    "claude-code",
+    "claude",
+    "anthropic",
+    "github-copilot",
+    "adobe-commerce",
+    "magento",
+    "magento2",
+    "commerce-upgrade",
+    "uct",
+    "ai-tools"
+  ],
+  "author": "Thillai Prabu",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adobe/commerce-upgrade-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adobe/commerce-upgrade-toolkit/issues"
+  },
+  "homepage": "https://github.com/adobe/commerce-upgrade-toolkit#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "files": [
+    ".claude",
+    ".github/agents",
+    ".github/context",
+    ".github/hooks",
+    ".github/instructions",
+    ".github/prompts",
+    ".github/scripts",
+    ".github/security",
+    ".github/skills",
+    ".github/copilot-instructions.md",
+    ".github/copilot-settings-notes.md",
+    "scripts",
+    "src",
+    "CLAUDE.md",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "COPYRIGHT",
+    "CODE_OF_CONDUCT.md",
+    "setup.sh"
+  ],
+  "dependencies": {
+    "@oclif/core": "4.3.1",
+    "fs-extra": "11.3.6"
+  }
+}

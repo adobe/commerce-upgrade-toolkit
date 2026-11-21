@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "scanner": {
+    "name": "semgrep",
+    "command": [
+      "semgrep",
+      "scan",
+      "--config",
+      "{rules}",
+      "--json",
+      "--quiet",
+      "--metrics=off",
+      "--disable-version-check",
+      "--disable-nosem",
+      "--no-git-ignore",
+      "--max-target-bytes",
+      "2000001",
+      "--timeout",
+      "20",
+      "{target}"
+    ],
+    "timeoutSeconds": 300
+  },
+  "blockAtOrAbove": "HIGH",
+  "scannableExtensions": [
+    ".php",
+    ".phtml",
+    ".xml",
+    ".graphqls",
+    ".json",
+    ".js",
+    ".html",
+    ".yaml",
+    ".yml"
+  ],
+  "ruleTargetPatterns": [
+    "\\.(?:php|phtml)$",
+    "(?:^|/)etc/(?:webapi|di|csp_whitelist)\\.xml$"
+  ],
+  "authorizedOperators": [],
+  "sensitive": {
+    "pathPatterns": [
+      "(?:^|/)etc/(?:adminhtml/)?acl\\.xml$",
+      "(?:^|/)etc/webapi\\.xml$",
+      "(?:^|/)etc/(?:schema|schema_[^/]*)\\.graphqls$",
+      "(?:^|/)etc/(?:csp_whitelist|crontab|events|config|system|di)\\.xml$",
+      "(?:^|/)etc/(?:adminhtml|webapi_rest|webapi_soap|graphql)/[^/]+\\.xml$",
+      "(?i)(?:^|/)(?:Payment|Paypal|Braintree|Vault|Gateway)[^/]*/",
+      "(?i)(?:^|/)(?:payment|vault)(?:/|\\.)",
+      "(?i)(?:^|/)(?:Authorization|Authentication|Authenticat[a-z]*|Auth|OAuth|Oauth|Sso|Identity|Integration|TwoFactorAuth|Security)(?:/|\\.|$)",
+      "(?i)(?:^|/)Customer/(?:Model/(?:Authentication|Session|Account)|Controller/Account)[^/]*",
+      "(?i)(?:^|/)(?:Encryption|Encryptor|Crypt|KeyManagement|EncryptionKey)[^/]*",
+      "(?i)(?:^|/)Controller/Adminhtml/",
+      "(?:^|/)app/etc/(?:env|config)\\.php$"
+    ],
+    "contentPatterns": [
+      "Magento\\\\+(?:Framework\\\\+(?:Encryption|Acl|Security|Authorization)|Authorization|Integration|Vault|Payment|User\\\\+Model\\\\+(?:User|Backend)|Customer\\\\+Model\\\\+(?:Authentication|AccountManagement|Session)|Backend\\\\+Model\\\\+Auth|Backend\\\\+App\\\\+(?:AbstractAction|Action))",
+      "ref\\s*=\\s*\"anonymous\"",
+      "(?i)crypt/key|encryption_key|payment/[a-z_]+/(?:key|secret|password|token)"
+    ],
+    "phpContentPatterns": [
+      "(?i)crypt/key|encryption_key",
+      "Magento\\\\+Framework\\\\+Encryption",
+      "Magento\\\\+Vault\\\\+",
+      "Magento\\\\+Framework\\\\+Acl\\\\+",
+      "Magento\\\\+Framework\\\\+(?:Security|Authorization)\\\\+",
+      "Magento\\\\+Authorization\\\\+",
+      "Magento\\\\+Integration\\\\+",
+      "Magento\\\\+Payment\\\\+",
+      "Magento\\\\+(?:Braintree|Paypal|Sales\\\\+Model\\\\+Order\\\\+Payment)\\\\+",
+      "Magento\\\\+Customer\\\\+(?:Model\\\\+(?:Authentication|AccountManagement|Session)|Controller\\\\+Account)",
+      "Magento\\\\+User\\\\+Model\\\\+(?:User|Backend)",
+      "Magento\\\\+Backend\\\\+(?:Model\\\\+Auth|App\\\\+(?:AbstractAction|Action))",
+      "Magento\\\\+TwoFactorAuth\\\\+"
+    ]
+  }
+}
