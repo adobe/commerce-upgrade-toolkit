@@ -431,6 +431,42 @@ for failure, kind, message in cases:
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('all report flows permit approved parent persistence without granting child execution', () => {
+  const handoff = read('.claude/guardrails/write-scope.md').split('## Document report persistence handoff')[1]
+    .split('## Mandatory sequence')[0];
+  assert.match(handoff, /status: report-proposal/);
+  assert.match(handoff, /exact approved `output_path`/);
+  assert.match(handoff, /complete `content`/);
+  assert.match(handoff, /reviewed `template_path` and exact `replacements`/);
+  assert.match(handoff, /reject unresolved placeholders/);
+  assert.match(handoff, /read back the complete file and verify/);
+  assert.match(handoff, /must not execute a child-supplied command\/patch/);
+  assert.match(handoff, /if the parent also lacks approved write access, stop explicitly/);
+  assert.match(handoff, /not scan\ncompletion, execution readiness/);
+  for (const file of [
+    'agents/commerce-documentation-engineer.md',
+    'commands/upgrade-hop.md', 'commands/upgrade-hop-execute.md',
+    'commands/upgrade-deploy-prep.md', 'commands/upgrade-assess.md',
+    'skills/upgrade-hop-report.md', 'skills/upgrade-assessment-pdf.md',
+    'skills/upgrade-assessment.md',
+  ]) {
+    assert.match(read(`.claude/${file}`), /Document report persistence handoff/, file);
+  }
+  const agent = read('.claude/agents/commerce-documentation-engineer.md');
+  assert.match(agent, /Do not stop at a\n   missing-tool message/);
+  assert.match(agent, /you still must not execute commands or claim the file was written/);
+  const hop = read('.claude/commands/upgrade-hop.md');
+  assert.doesNotMatch(hop, /\{\{TOOLKIT_VERSION\}\}: "0\.2\.0"/);
+  assert.match(hop, /installed version from `\.claude\/context\/\.ccua-version`/);
+  const execute = read('.claude/commands/upgrade-hop-execute.md');
+  assert.doesNotMatch(execute, /collecting its own `git log`/);
+  assert.match(execute, /approved orchestrator supplies non-secret/);
+  assert.match(read('CLAUDE.md'), /Document report persistence handoff/);
+  assert.match(read('.github/instructions/write-scope.instructions.md'), /Document report persistence handoff/);
+  assert.match(read('.github/agents/commerce-documentation-engineer.agent.md'), /report-proposal/);
+  assert.match(read('.github/copilot-instructions.md'), /Document report persistence handoff/);
+});
+
 test('canonical and generated research/edit/execute grants are separated', () => {
   for (const name of ['commerce-upgrade-researcher', 'commerce-architect',
     'commerce-frontend-developer', 'commerce-security-reviewer']) {

@@ -325,8 +325,10 @@ Update context/upgrade-state.md: preserve codegraphCallCount (accumulate, do not
 
 This is the **full-upgrade roadmap report** — one file covering all hops, kept separate from the per-hop-version reports written in Analysis Mode and Execution Mode.
 
-Dispatch the `commerce-documentation-engineer` agent to produce it — do not fill or write the
-HTML in this session. Give the agent:
+Dispatch the `commerce-documentation-engineer` agent to compose it. Include the
+**Document report persistence handoff** from `write-scope`: if child writes are unavailable,
+this session may persist only the exact reviewed report proposal, not independently author
+the report or broaden permissions. Give the agent:
 - The template path: `.claude/context/upgrade-report-template.html`
 - The output path: `output/upgrade-roadmap-{date}.html`
 - The placeholder values, sourced from context/upgrade-state.md and the plan just generated:
@@ -336,9 +338,11 @@ HTML in this session. Give the agent:
   - {{EFFORT_TIER}}: highest effortTier across all hops
   - {{HOP_PLAN_ROWS}}: one `<tr>` per hop with columns from, to, effortTier, reason
   - {{HOP_PROGRESS_ROWS}}: one row per hop — status = "planned" for all hops on first write, with a link placeholder for its hop-version report (filled in once that hop's report exists)
-  - {{TOOLKIT_VERSION}}: "0.2.0"
+  - {{TOOLKIT_VERSION}}: installed version from `.claude/context/.ccua-version`; if unavailable, report the missing version evidence instead of inventing a value
 
-Wait for the agent to confirm the file path, then print: "Roadmap report saved to output/upgrade-roadmap-{date}.html"
+Wait for the agent's write confirmation or complete proposal. Apply the handoff if needed,
+then read back and verify the exact approved file before printing:
+"Roadmap report saved to output/upgrade-roadmap-{date}.html"
 
 Record the path in context/upgrade-state.md: set `roadmapReportPath: output/upgrade-roadmap-{date}.html`
 in the `## Reports` section. Also populate the `## Hop progress` table now, one row per hop
@@ -535,7 +539,7 @@ Accumulate codegraphCallCount in context/upgrade-state.md (do not reset). No dol
 
 ### Step 7: Write Hop-Version Report (Pre-Hop)
 
-This is the **hop-version analysis report** — a separate, detailed report scoped to this one hop, distinct from the roadmap report written in Planning Mode. Dispatch the `commerce-documentation-engineer` agent to generate it — do not build the HTML in this session. The agent applies the `upgrade-hop-report` skill's PRE-HOP REPORT section using context/upgrade-state.md and context/upgrade-findings.md as source data. It must contain, per skill instructions:
+This is the **hop-version analysis report** — a separate, detailed report scoped to this one hop, distinct from the roadmap report written in Planning Mode. Dispatch the `commerce-documentation-engineer` agent to compose it and include the **Document report persistence handoff** from `write-scope`; the parent may persist only the reviewed proposal when child writes are unavailable. The agent applies the `upgrade-hop-report` skill's PRE-HOP REPORT section using context/upgrade-state.md and context/upgrade-findings.md as source data. It must contain, per skill instructions:
 - Findings broken down by domain (Backend, API Contract, Schema, Frontend, Services) with severity and effort
 - Infrastructure changes required for this hop
 - Marketplace/third-party extension compatibility status
@@ -554,7 +558,7 @@ Print: "Hop-version report saved to .claude/reports/hop-{n}-{fromVersion}-{targe
 
 ### Step 8: Generate Client PDF (Pre-Hop)
 
-Immediately after the HTML report is written, dispatch `commerce-documentation-engineer` (or a follow-up dispatch) to apply the `upgrade-assessment-pdf` skill (pre-hop variant) and write ONLY the print HTML to `.claude/reports/hop-{n}-{fromVersion}-{targetVersion}-plan-assessment.html`. The agent is document-only and never executes commands. Then this session (the orchestrator) converts it, as a routine step within the approved scope (`mkdir -p output/pdf` first; the converter only reads the print HTML and writes the PDF):
+Immediately after the HTML report is written and read-back verified, dispatch `commerce-documentation-engineer` (or a follow-up dispatch) to apply the `upgrade-assessment-pdf` skill (pre-hop variant) and prepare ONLY the print HTML for `.claude/reports/hop-{n}-{fromVersion}-{targetVersion}-plan-assessment.html`. Include the **Document report persistence handoff** from `write-scope` and verify persistence before conversion. The agent is document-only and never executes commands. Then this session (the orchestrator) converts it, as a routine step within the approved scope (`mkdir -p output/pdf` first; the converter only reads the print HTML and writes the PDF):
 `node .claude/scripts/html-to-pdf.mjs "<print.html>" "output/pdf/{pdfFileName}"`
 If no execution approval exists, return that exact command as a human-run runbook instead.
 

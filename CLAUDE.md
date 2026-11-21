@@ -249,8 +249,11 @@ After every slash command completes its final step, always ask:
 
 > "Would you like an interactive HTML report of this output? (yes / no)"
 
-**If yes:** dispatch the `commerce-documentation-engineer` agent to generate the report —
-do not build the HTML in the top-level session. The agent:
+**If yes:** dispatch the `commerce-documentation-engineer` agent to compose the report.
+Include the **Document report persistence handoff** from `write-scope`: if child writes
+are unavailable, the parent may persist only the exact reviewed proposal with its own
+approved native file-edit tool. Do not independently author the report or widen permissions.
+Read back and verify the saved file before reporting success. The agent:
 1. Generates a self-contained `index.html` — all CSS and JS embedded inline (no external CDN
    dependencies)
 2. Saves to `output/html/<command-name>-<YYYY-MM-DD>/index.html` relative to the project root
