@@ -126,8 +126,9 @@ Pull requests and pushes to `main` or `release/*` run `npm test` on Node.js 22
 (the declared minimum), including real Semgrep rule fixtures.
 CI also checks generated Copilot assets, secret/encryption safety, and dependencies.
 Magento Coding Standard and PHPCS module checks are not part of toolkit CI.
-The separate standard publishing workflow runs installation and tests on Node.js 22
-before publishing.
+Pull requests run CI without publishing. Merging into `release/*` triggers the
+separate standard publishing workflow, which installs dependencies and runs tests
+on Node.js 22 before publishing. Direct pushes to release branches also trigger it.
 Nightly CI runs the same containment tests. It is not an audit of an absent CodeGraph
 dependency: transitive audit, provenance, signed catalog and real sandbox gates remain
 pending until an independently reviewed profile/lock and trust anchor exist.
