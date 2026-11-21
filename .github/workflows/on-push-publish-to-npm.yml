@@ -1,13 +1,19 @@
-name: on-push-publish-to-npm
+name: on-pr-merge-publish-to-npm
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - "release/*"
+permissions:
+  contents: read
 jobs:
   publish:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
       - uses: actions/setup-node@v1
         with:
           node-version: 22
