@@ -13,6 +13,7 @@ Use GitHub Copilot or Claude Code to plan upgrade hops, analyze compatibility, r
 | Commerce project | A local or development checkout of an installed Adobe Commerce PaaS project with `composer.json` and `bin/magento`. |
 | Coding agent | [GitHub Copilot](https://github.com/features/copilot) or [Claude Code](https://claude.com/claude-code), installed and authenticated. |
 | Linux development environment | Linux with `/proc`, using Warden, Cloud Docker, Markshust Docker Magento, or bare-metal. On macOS or Windows, run setup in a Linux development container; native setup is not supported. |
+| Documentation research | Python 3 with a trusted CA store, plus curl for the automatic HTTP 403 fallback, in the environment where your coding agent runs research (which can be the host). |
 
 Use a local or development environment only, without production access or production credentials.
 
@@ -178,6 +179,7 @@ Read the [security and existing-install guidance](docs/security-migration.md) be
 
 | Symptom | What to do |
 | --- | --- |
+| Official documentation fetch returns HTTP 403 | The helper automatically retries through controlled curl with TLS verification and validated redirects. Ensure curl is available where research runs. If both clients fail, use the reviewed browser/manual-document fallback in the installed websearch-scope guardrail; never disable TLS verification. |
 | `aio: command not found` inside Docker | The host installation is separate. Follow step 2 inside the container and ensure `$HOME/.local/bin` is on PATH. Reinstall if the container home was not persisted. |
 | npm reports `EACCES` when installing `aio` | Use the user-owned `--prefix "$HOME/.local"` in step 2, not the system global directory. If the error names your home or npm cache, have your environment maintainer correct that user's home/cache ownership; do not run toolkit setup as root. |
 | Node.js is missing or below version 22 | Configure Node.js 22+ in the development container, then recreate/re-enter it and check again. Changing Node.js on the host alone does not change Docker. |
