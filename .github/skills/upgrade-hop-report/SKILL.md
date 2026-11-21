@@ -15,8 +15,9 @@ Generate a self-contained interactive HTML report for a **single hop version** �
 detailed counterpart to the overall roadmap report written by `/upgrade-hop` planning mode.
 The roadmap report shows the multi-hop plan at a glance; this report shows everything about
 *one* hop: findings by domain, infrastructure, marketplace extensions, hotfix/deferred-item
-decisions, and validation outcomes. Two files per hop — pre (plan) and post (result). Write
-both using the Write tool.
+decisions, and validation outcomes. Two files per hop — pre (plan) and post (result).
+Persist both through the **Document report persistence handoff** in `write-scope`:
+the documentation agent composes; a write-capable parent may persist the reviewed proposal.
 
 **Output paths:**
 - Pre:  `.github/reports/hop-{n}-{fromVersion}-{toVersion}-plan.html`
@@ -295,11 +296,14 @@ the `gaps` list. Never render effort points, hours, durations or costs.
 
 The `commerce-documentation-engineer` agent follows these steps when generating either report:
 
-1. Collect all required data first (git commands, upgrade-state.md and upgrade-findings.md reads).
+1. Collect all required data first (approved orchestrator-supplied non-secret git evidence,
+   upgrade-state.md and upgrade-findings.md reads); never execute commands in the documentation role.
 2. Build the full HTML string — header, styles, body, script — as one complete document.
-3. Write the file using the Write tool to the correct path under `.github/reports/`.
-4. Confirm: "Report written to .github/reports/hop-{n}-{from}-{to}-{plan|result}.html"
+3. Use the available document-write tool, or return a complete `report-proposal` through
+   the **Document report persistence handoff** in `write-scope` if child writes are unavailable.
+4. The parent reads back and verifies the saved document before confirming:
+   "Report written to .github/reports/hop-{n}-{from}-{to}-{plan|result}.html"
 
-Do NOT stream the HTML to the terminal — write it directly to the file.
+Do NOT stream the HTML to the terminal — write it directly or return it as the report proposal.
 Do NOT truncate or summarise the HTML — write the complete document.
 Do NOT include any dollar-cost or token-spend figures in either report.

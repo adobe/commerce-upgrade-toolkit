@@ -24,8 +24,10 @@ Compatibility Tool"), session notes, or secrets.
 
 ## Steps
 
-1. Documentation agent: build the print HTML (below) with the Write tool. The agent is
-   document-only and never executes the converter.
+1. Documentation agent: compose the print HTML (below) and use the
+   **Document report persistence handoff** in `write-scope` if child writes are unavailable.
+   The parent verifies the saved HTML by read-back before conversion. The documentation
+   agent is document-only and never executes the converter.
 2. Orchestrator (current session, routine scope; else return as a human-run runbook):
    `node .github/scripts/html-to-pdf.mjs "<print.html>" "<final.pdf>"`
 3. Confirm the PDF exists. If conversion fails (exit 3 = no browser), keep the HTML and

@@ -85,4 +85,9 @@ the command output, footer. Write to
    commands to write the report or change tool permissions.
 6. Confirm the document-write operation succeeded before reporting:
    "Report written to {path}." If no document-write tool is exposed by the host,
-   report the missing capability explicitly; do not claim the file was written.
+   apply the **Document report persistence handoff** in `write-scope`: return a
+   complete `report-proposal` with the exact approved `output_path` and `content`,
+   or the reviewed `template_path` and exact `replacements`. Do not stop at a
+   missing-tool message when the source data is available. The approved parent
+   persists and reads back the reviewed document with its own native file-edit
+   tool; you still must not execute commands or claim the file was written.

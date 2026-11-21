@@ -596,7 +596,7 @@ Print:
 
 ### Step 8: Update Hop-Version Report (Post-Hop)
 
-This updates the same **hop-version report** family started in Analysis Mode — the detailed, per-hop report kept separate from the overall roadmap report. Dispatch the `commerce-documentation-engineer` agent to generate it — do not build the HTML in this session. The agent applies the `upgrade-hop-report` skill's POST-HOP REPORT section using context/upgrade-state.md and context/upgrade-findings.md as source data, collecting its own `git log`/`git diff --stat` for the change log. It must contain, per skill instructions:
+This updates the same **hop-version report** family started in Analysis Mode — the detailed, per-hop report kept separate from the overall roadmap report. Dispatch the `commerce-documentation-engineer` agent to compose it and include the **Document report persistence handoff** from `write-scope`; the parent may persist only the reviewed proposal when child writes are unavailable. The agent applies the `upgrade-hop-report` skill's POST-HOP REPORT section using context/upgrade-state.md and context/upgrade-findings.md as source data. The approved orchestrator supplies non-secret `git log`/`git diff --stat` evidence for the change log; the documentation agent never executes those commands. It must contain, per skill instructions:
 - Change log (git commits/files changed since hop start)
 - Findings status (fixed / skipped / manual-required / superseded-by-core, per finding)
 - Validation results (DI compile, PHPCS, PHPUnit, smoke tests)
@@ -606,7 +606,7 @@ This updates the same **hop-version report** family started in Analysis Mode —
 
 Write path per the skill: `.github/reports/hop-{n}-{fromVersion}-{targetVersion}-result.html`.
 
-Once the agent confirms, update the roadmap report (output/upgrade-roadmap-{date}.html, if it exists) — set this hop's {{HOP_PROGRESS_ROWS}} status to "complete" and link to the post-hop report just written. This roadmap update can be done directly in this session (small placeholder patch, not a full report build).
+After applying the handoff if needed and verifying report read-back, update the roadmap report (output/upgrade-roadmap-{date}.html, if it exists) — set this hop's {{HOP_PROGRESS_ROWS}} status to "complete" and link to the post-hop report just written. This roadmap update can be done directly in this session (small placeholder patch, not a full report build).
 
 Record the path in context/upgrade-state.md's `## Reports` section:
 `hopVersionReports.{targetVersion}.post = .github/reports/hop-{n}-{fromVersion}-{targetVersion}-result.html`.

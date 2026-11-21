@@ -96,6 +96,10 @@ dispatch `commerce-documentation-engineer` with the data file path and the repor
 - `.claude/reports/upgrade-assessment-{date}.html`
 - `.claude/reports/upgrade-assessment-{date}.md`
 
+Include the **Document report persistence handoff** from `write-scope`: if the child lacks
+write tools, the approved parent may persist only the complete reviewed proposals for these
+two files. Read back and verify each document before printing its path as a saved artifact.
+
 Unknown, blocked and not-assessed items must be visible in the report, inside the relevant
 table row. The report follows the PM five-chapter template in Section 6 and omits the
 internal chapters (core upgrade, Composer, complexity/delivery, open items). It must end
