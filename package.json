@@ -1,6 +1,6 @@
 {
   "name": "@adobe/commerce-upgrade-toolkit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-guided, developer-approved Adobe Commerce PaaS upgrades with Claude Code or GitHub Copilot — hop planning, UCT scanning, remediation, and deployment preparation.",
   "commerceUpgradeToolkit": {
     "installerApiVersion": 1
@@ -19,8 +19,15 @@
   },
   "oclif": {
     "bin": "aio",
+    "topicSeparator": " ",
     "commands": "./src/commands",
     "topics": {
+      "commerce": {
+        "description": "Adobe Commerce developer tools"
+      },
+      "commerce upgrade": {
+        "description": "Install and update Adobe Commerce upgrade workflows"
+      },
       "ccua": {
         "description": "Adobe Commerce Upgrade Toolkit — install and update Claude Code or GitHub Copilot upgrade workflows in a Commerce project"
       },
