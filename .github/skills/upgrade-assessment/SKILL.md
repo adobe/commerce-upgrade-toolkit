@@ -103,6 +103,10 @@ Each section writes one object into the assessment data (Section 5). Every table
   search engine, message queue, cache/session store) from the official system-requirements
   and lifecycle pages (host allowlist in `websearch-scope`). Record URL, retrieval date and
   content hash. Never rely on memory or on example tables alone.
+- Discover system-requirements links from the verified official upgrade prerequisites page
+  using `research_url.py links`, then controlled-fetch the selected candidate. Do not guess
+  installation paths. Apply `websearch-scope`'s 404 classification/recovery; a documentation
+  gap does not prevent independently authorized UCT scans for a verified version pair.
 - Table columns: service, current version, target version, change type
   (`upgrade` / `migration` / `none`), notes.
 - Flag **migrations** (a different product, not a version bump) explicitly, for example

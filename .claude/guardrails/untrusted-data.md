@@ -76,7 +76,9 @@ non-secret evidence; the helper shares source_file with normalization and checks
 descriptor before reading. This applies to persisted accepted records and caller/blast-radius
 paths too. Do not bypass it with native reads/searches of a credential-bearing checkout.
 Native tools require an independently reviewed secret-free snapshot and effective host read
-exclusions; helpers/instructions cannot intercept native tools. If unavailable, stop.
+exclusions; helpers/instructions cannot intercept native tools. If unavailable, stop the
+affected source reads and use `write-scope`'s provisional in-chat planning fallback, not
+another tool/agent to bypass the boundary.
 Path rules cannot identify secrets embedded in otherwise permitted files: human classification
 and secret-free host access remain mandatory. Vendor source is readable, vendor secrets are not.
 Future approved MCP output is
