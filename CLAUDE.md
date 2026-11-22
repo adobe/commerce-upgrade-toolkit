@@ -163,6 +163,7 @@ ask. Read and apply the matching skill when the task fits.
 | Upgrade hop: fix sequencing, tier order | `remediation-order` |
 | Upgrade hop: extension compatibility matrix | `marketplace-extension-analysis` |
 | Upgrade hop: HTML report (pre/post) | `upgrade-hop-report` |
+| Any report: identity, evidence labels and print/Markdown presentation | `report-branding` |
 | Multi-hop data migration script | `data-migration-plan` |
 | Encryption key rotation, password hash migration | `encryption-and-passwords` |
 | Frontend template/layout override analysis | `frontend-upgrade-analysis` |
@@ -250,6 +251,9 @@ After every slash command completes its final step, always ask:
 > "Would you like an interactive HTML report of this output? (yes / no)"
 
 **If yes:** dispatch the `commerce-documentation-engineer` agent to compose the report.
+Apply `.claude/skills/report-branding.md` to every report and exported twin: shared toolkit
+identity, inline styling and visible evidence status/blockers. Do not import corporate assets
+or hide incomplete checks; presentation does not change approval or readiness.
 Include the **Document report persistence handoff** from `write-scope`: if child writes
 are unavailable, the parent may persist only the exact reviewed proposal with its own
 approved native file-edit tool. Do not independently author the report or widen permissions.

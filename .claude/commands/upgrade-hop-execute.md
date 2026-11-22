@@ -39,6 +39,12 @@ jumpToChunk = extract numeric value from --chunk=N flag if present, otherwise 1.
 
 ### Step 1: State Read
 
+If `currentHop.uctAssessment.status` is `not-assessed` for this hop, stop before any
+completion/resume shortcut: an incomplete report is not scan evidence. Require a working
+UCT and fresh `/upgrade-hop {targetVersion}` analysis with successful normalization and
+the existing quarantine/remediation gates. Stored report or prerequisite flags are not
+permission to bypass those gates.
+
 Before normal completion/resume checks, compare the confirmed environment identity against
 `recoveryEnvironment`. If `recoveryStatus` is `in-progress` or `failed` for this environment,
 stop and resolve/validate recovery first. If an affected hop is `suspended-pending-rerun`,
