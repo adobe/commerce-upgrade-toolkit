@@ -2,6 +2,17 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
+## [1.0.7] (unreleased)
+
+- Compare normalized UCT findings by code, file and strict symbol instead of diagnostic wording or type.
+- Detect Composer UCT executables through the shared prerequisite and distinguish missing tools, execution failures and unsupported normalization.
+- Require explicit incomplete-report consent after scan failures; retain null unavailable counts and existing blockers.
+- Simplify the public README and move detailed setup, updates and troubleshooting into a linked guide.
+
+Release verification is pending reviewed UCT 3.0.28 baseline/target fixtures and live
+end-to-end scans. UCT 3.0.28 schema/diagnostic adapters have not been added; unknown formats
+remain quarantined.
+
 ## [1.0.6]
 
 - Verify UCT prerequisites before scan-dependent assessments and hop reports; keep roadmap planning unchanged.

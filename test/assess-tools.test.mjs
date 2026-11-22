@@ -13,11 +13,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath, satisfies, customModuleEvidence, patchEvidence, uctPrerequisite } from '../.claude/scripts/assess_tools.mjs'
 
-const f = (over = {}) => ({ code: 'MC-1', type: 'critical', file: 'a.php', line: 1, message: 'removed', ...over })
+const f = (over = {}) => ({ code: 'MC-1', type: 'critical', file: 'a.php', line: 1,
+  symbol: 'Magento\\Example\\Model::removedMethod', message: 'removed', ...over })
 
 test('UCT prerequisites accept verified installed modes but do not declare a scan clean', () => {
   for (const [probe, mode] of [
     [{ inProjectExitCode: 0 }, 'in-project'],
+    [{ inProjectExitCode: 1, composerExitCode: 0 }, 'composer'],
     [{ inProjectExitCode: 1, standaloneExitCode: 0 }, 'standalone-fallback']
   ]) {
     const result = uctPrerequisite(probe)
@@ -49,7 +51,20 @@ test('missing, declined and failed UCT require an explicit incomplete-report dec
   assert.equal(uctPrerequisite({ standaloneExitCode: 0, installationOutcome: 'completed' }).status,
     'available', 'human installation must be reverified')
   assert.throws(() => uctPrerequisite({ inProjectExitCode: true }), /exit codes/)
+  assert.throws(() => uctPrerequisite({ composerExitCode: '0' }), /exit codes/)
   assert.throws(() => uctPrerequisite({ continueIncomplete: 'yes' }), /incomplete-report decision/)
+});
+
+test('UCT probe execution failures do not suggest reinstalling a missing tool', () => {
+  const result = uctPrerequisite({ inProjectExitCode: 1, composerExitCode: 1,
+    standaloneExitCode: 1, probeFailure: 'execution-failed', continueIncomplete: true })
+  assert.equal(result.status, 'execution-failed')
+  assert.equal(result.scanAllowed, false)
+  assert.equal(result.incompleteReportAllowed, true)
+  assert.match(result.reason, /repair the PHP\/environment\/access failure/)
+  assert.equal(uctPrerequisite({ composerExitCode: 0, probeFailure: 'execution-failed' }).status,
+    'available', 'one working executable avoids unnecessary installation')
+  assert.throws(() => uctPrerequisite({ probeFailure: 'guess' }), /invalid UCT/)
 });
 
 test('UCT prerequisite CLI classifies live evidence without modifying project dependencies', () => {
@@ -88,6 +103,28 @@ test('diffUct reports resolved findings and respects duplicates', () => {
   const result = diffUct([f(), f()], [f()])
   assert.equal(result.resolvedCount, 1)
   assert.equal(result.introducedCount, 0)
+})
+
+test('diffUct uses code, file and strict symbol, not wording or classification', () => {
+  const result = diffUct([f()], [f({ line: 99, type: 'renamed-classification',
+    message: 'different wording' }), f({ symbol: 'Magento\\Example\\Model::anotherMethod' })])
+  assert.equal(result.introducedCount, 1)
+  assert.equal(result.introduced[0].symbol, 'Magento\\Example\\Model::anotherMethod')
+  assert.equal(result.resolvedCount, 0)
+  for (const change of [{ code: 'MC-2' }, { file: 'other.php' }]) {
+    const changed = diffUct([f()], [f(change)])
+    assert.equal(changed.introducedCount, 1)
+    assert.equal(changed.resolvedCount, 1)
+  }
+})
+
+test('diffUct rejects raw or malformed identity fields instead of matching undefined symbols', () => {
+  for (const value of [null, [], f({ symbol: undefined }), f({ symbol: 'Class::method(); run()' }),
+    f({ file: '../a.php' }), f({ file: '/a.php' }), f({ code: '' })]) {
+    assert.throws(() => diffUct([value], []), /normalized code/)
+    assert.throws(() => diffUct([], [value]), /normalized code/)
+  }
+  assert.equal(diffUct([], []).introducedCount, 0)
 })
 
 test('suggestComplexity follows the High/Medium/Small rules', () => {
@@ -196,6 +233,14 @@ test('both agent flavors gate scan reports without adding UCT to roadmap plannin
     assert.match(read(command('upgrade-hop-execute')), /currentHop\.uctAssessment\.status.*`not-assessed`/)
     assert.match(read(skill), /human-run installation procedure/)
     assert.match(read(skill), /Set `continueIncomplete: true` only after that explicit live choice/)
+    assert.match(read(skill), /php vendor\/bin\/uct --version/)
+    assert.match(read(skill), /composerExitCode/)
+    assert.match(read(skill), /UCT is required for a completed compatibility assessment\. Choose:/)
+    for (const failure of ['execution-failed', 'normalization-unsupported']) {
+      assert.ok(read(skill).includes(failure))
+      assert.ok(assess.includes(failure))
+      assert.ok(analysis.includes(failure))
+    }
   }
 });
 

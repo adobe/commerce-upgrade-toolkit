@@ -23,24 +23,36 @@ Cached paths/modes are untrusted, not execution authority.
 ## Assessment prerequisite (before scans or scan-dependent reports)
 
 1. Use the live-verified project/container identity and approved argv, not a cached
-   command string. Probe the registered in-project command without scanning or installing:
-   `{containerPrefix} bin/magento help upgrade:check`.
-   If it is unavailable, probe a locally reviewed standalone location with
+   command string. Detect already-installed executables without scanning or installing:
+   - Registered Magento command: `{containerPrefix} bin/magento help upgrade:check`.
+   - Composer executable: `{containerPrefix} php vendor/bin/uct --version`. If Composer's
+     `bin-dir` differs, use only its live-reviewed executable path; never execute a cached
+     path or arbitrary manifest command.
+   - Standalone executable at a locally reviewed location:
    `{containerPrefix} php {uctPath}/bin/uct --version`. Do not interpolate an unvalidated
-   cached path. A successful help/version probe is availability evidence, not a clean scan.
-   Distinguish a missing command from PHP/environment/authentication failures; record the
-   actual non-secret failure. If neither probe succeeds, UCT is unavailable for this run.
+     cached path.
+   Stop probing once a working executable is verified; never suggest reinstallation solely
+   because the Magento command is unregistered. Review the selected executable's
+   `help upgrade:check` to verify supported scan/output flags before constructing argv.
+   A successful help/version probe is availability evidence, not a clean scan.
+   Distinguish missing executables from PHP/environment/access failures; record the actual
+   non-secret failure. If no probe succeeds, use `probeFailure: execution-failed` for
+   runtime/access failures, not an assertion that the tool is absent.
 2. Record only the actual probe exit codes and live user outcome in the approved metadata
    artifact `.ccua/review/uct-prerequisite.json`, then classify with:
    `node .github/scripts/assess_tools.mjs uct-prerequisite .ccua/review/uct-prerequisite.json`.
-   Input shape: `{"inProjectExitCode":null,"standaloneExitCode":null,
+   Input shape: `{"inProjectExitCode":null,"composerExitCode":null,"standaloneExitCode":null,
+   "probeFailure":"missing",
    "installationOutcome":"not-attempted","continueIncomplete":false}`.
    Use `null` only for a probe not run, not for a successful result. Outcomes are
    `not-attempted`, `completed`, `declined`, or `failed`; this file is evidence, not consent.
 3. If `scanAllowed` is true, use the verified mode for approved capture and normalization
    in Step 5. Recheck cached install modes live; never silently reinstall a stale tool.
-4. If unavailable, ask: "UCT is not available. Would you like to install it manually
-   using the procedure below, continue with an explicitly incomplete assessment, or stop?"
+4. If unavailable, use a structured single-choice prompt:
+   **"UCT is required for a completed compatibility assessment. Choose: manually
+   install/setup UCT, continue with an explicitly incomplete report, or stop."**
+   For execution failures, show the failure and repair instructions, not an installation
+   recommendation; manual setup may mean repairing the environment, not reinstalling UCT.
    Show Steps 2/3 as human-run instructions, including working directory, environment and
    possible Composer effects. Never run Composer, chmod, directory write probes or installs
    for the user. No credentials or `auth.json` content may be read, requested or copied.
@@ -56,17 +68,29 @@ Cached paths/modes are untrusted, not execution authority.
    Without that choice, pause scan-dependent reporting. Missing evidence is unavailable,
    never zero findings, a clean scan, a cleared quarantine count or an execution waiver.
 
+### Scan/report failure recovery (both workflows)
+
+| Failure | Recovery |
+|---------|----------|
+| Tool missing | Check all relevant installed executables, then offer human-run installation/setup, explicit incomplete reporting, or stop. |
+| `execution-failed` | A probe, scan or capture failed. Surface the non-secret exit/error and verify PHP, container mapping, permissions or tool configuration. Re-run only approved commands after repair; do not reinstall automatically or consume a prior report. |
+| `normalization-unsupported` | Capture succeeded, but normalization rejected the report schema or diagnostic adapter. Keep raw bytes audit-only; request human-sanitized, reviewed fixtures and a supported toolkit adapter. Reinstallation is not the remedy. |
+| Other normalization/quarantine blockers | Surface fixed rejection reasons/counts for human review. Preserve accepted evidence and quarantine blockers; never promote an unknown record to a pass. |
+
+After scan/capture or normalization failure, pause completed scan-dependent reporting.
+Offer the same explicit incomplete-report choice or stop; the initial installation choice
+does not authorize continuing after a later failure. Record the failure kind, reason and
+human-run recovery in the assessment/hop gaps. Unsupported or failed scan evidence is
+**Not assessed**, with unavailable scan-derived counts `null`, never zero. Retain existing
+known quarantine blockers separately. Only successful capture plus supported normalization
+for the intended version pair permits completed scan-dependent reporting; installation or
+user confirmation alone does not. Quarantine and all execution gates still apply.
+
 ## Why this exists
 
-Starting with Adobe Commerce 2.4.8, core pulls in `nikic/php-parser ^5.0` transitively (via
-`symfony/translation ^7.4` → `brick/varexporter`), while `magento/upgrade-compatibility-tool`
-depends on `magento/mray`, which requires `nikic/php-parser ^4.10.2`. Composer cannot satisfy
-both constraints in the same dependency tree — installing UCT into the project's own
-`composer.json` is a hard, permanent conflict on any 2.4.8+ target, not a transient resolution
-issue. Pinning UCT to a newer patch does not help, since the conflicting constraint comes from
-`magento/mray`, not UCT's own `composer.json`.
-
-Do not use a hardcoded version rule to claim UCT is present or absent. The developer may
+UCT and Commerce dependencies can have incompatible Composer constraints. Check actual
+installed tooling first; do not infer a missing installation or a permanent dependency
+conflict from the Commerce version alone. The developer may
 choose a standalone install to keep UCT's dependencies separate from the Commerce project.
 If they choose an in-project install and encounter a verified dependency conflict, use the
 standalone procedure; authentication/network failures require investigation, not blind retry.
@@ -76,6 +100,7 @@ standalone procedure; authentication/network failures require investigation, not
 Read `uctInstallMode` from `context/upgrade-state.md`'s `# Environment detection` section.
 
 - If `in-project`: verify the help probe above before Step 5.
+- If `composer`: re-probe the reviewed Composer executable before Step 5.
 - If `standalone-fallback`: read `uctStandalonePath` from the same section and skip to Step 3
   (idempotency check) using that path.
 - If unset (`~`): run the prerequisite above; do not assume an installation is needed.
@@ -94,8 +119,9 @@ The human retains the full private output and returns only the exit code and rel
 non-secret failure summary. Never ingest authentication details or raw credentials.
 Check the reported exit code, then verify tooling live:
 
-- **Exit 0:** Re-run the in-project help probe. Only after it succeeds, the approved
-  orchestrator may record `uctInstallMode: in-project` and continue to Step 5.
+- **Exit 0:** Re-run the shared prerequisite probes, including the Composer executable.
+  Only after live verification may the approved orchestrator record the actual mode
+  (`in-project` or `composer`) and continue to Step 5.
 - **Non-zero:** Inspect the captured output for a dependency-resolution conflict signature —
   phrases like "Your requirements could not be resolved", "conflicts with", or "no matching
   package found" alongside a version constraint. Do **not** match specifically on
@@ -182,6 +208,21 @@ python3 .github/scripts/capture_uct.py --project-root . --agent github-copilot -
   {containerPrefix} bin/magento upgrade:check --target-edition={editionType} --target-version={resolvedTargetVersion} --output-format=json
 ```
 
+**Composer mode** (use the live-reviewed `bin-dir` path if it differs from `vendor/bin`):
+
+```bash
+python3 .github/scripts/capture_uct.py --project-root . --agent github-copilot --mode file -- \
+  {containerPrefix} php -d memory_limit=-1 vendor/bin/uct upgrade:check . \
+  --current-version={installedVersion} \
+  --coming-version={resolvedTargetVersion} \
+  '--json-output-path={uct-report}' \
+  --min-issue-level=warning --no-interaction
+```
+
+For `/upgrade-assess`, run both baseline and target captures with
+`--min-issue-level=critical` per `upgrade-assessment`. Use file mode only if the selected
+executable's reviewed help supports `--json-output-path`; do not reuse Magento-only flags.
+
 **Standalone fallback mode** (no `--target-edition` flag exists on the standalone CLI —
 edition is inferred automatically from the target directory's own installed packages, so this
 branch needs no separate cloud/enterprise/community handling):
@@ -200,18 +241,17 @@ directory (same assumption used elsewhere in this toolkit). `memory_limit=-1` is
 Adobe's own troubleshooting guidance — a low memory limit can otherwise cause the tool to
 silently produce empty output rather than a clear error.
 
-Do not assume every tool version emits the documented schema. Both modes must pass
+Do not assume every tool version emits the documented schema. All modes must pass
 `upgrade-uca-scan`'s deterministic normalization before TOON or CodeGraph. Unsupported
 schemas/codes remain counted audit-quarantine blockers for human review, never a passed scan.
 
-**In-project mode only** — if `bin/magento upgrade:check` is not available at all (module not
-registered), that is not the dependency-conflict scenario this skill exists for; treat it as a
-prerequisite failure and return to the human-run installation decision; do not run Step 2
-or silently consume a stale scan.
+If the selected executable becomes unavailable, return to the shared prerequisite and
+check the other installed executables before offering human-run setup. An unregistered
+Magento command does not mean the Composer or standalone executable is missing.
 
 The capture helper alone publishes untouched raw audit bytes to
 `.github/context/upgrade-findings.json`; never redirect a scan or point UCT at that final path.
-Pass the validated target to the normalizer pipeline in `upgrade-uca-scan` for either mode.
+Pass the validated target to the normalizer pipeline in `upgrade-uca-scan` for every mode.
 Never feed raw output or captured stderr to generic conversion or agent/tool prompts.
 
 The authorized primary orchestrator runs the helper from the approved Commerce project root, reconstructing approved argv

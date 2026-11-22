@@ -51,8 +51,15 @@ export function readJson(path) {
 }
 
 function findingKey(f) {
-  // Line numbers shift between versions of the same file, so they are not part of identity.
-  return [f.code, f.type, f.file, f.message].join('\u0000')
+  if (!f || typeof f !== 'object' || Array.isArray(f) ||
+      typeof f.code !== 'string' || !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(f.code) ||
+      typeof f.file !== 'string' || !/^(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(f.file) ||
+      f.file.split('/').some(part => part === '.' || part === '..') ||
+      typeof f.symbol !== 'string' ||
+      !/^[A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][A-Za-z0-9_]*)+(?:::[A-Za-z_][A-Za-z0-9_]*)?$/.test(f.symbol)) {
+    throw new Error('findings require normalized code, project-relative file and strict symbol')
+  }
+  return JSON.stringify([f.code, f.file, f.symbol])
 }
 
 export function diffUct(baseline, target) {
@@ -112,27 +119,32 @@ export function isSensitivePath(file) {
   return typeof file === 'string' && SENSITIVE_PATH.test(file)
 }
 
-export function uctPrerequisite({ inProjectExitCode = null, standaloneExitCode = null,
+export function uctPrerequisite({ inProjectExitCode = null, composerExitCode = null,
+  standaloneExitCode = null, probeFailure = 'missing',
   installationOutcome = 'not-attempted', continueIncomplete = false } = {}) {
-  for (const code of [inProjectExitCode, standaloneExitCode]) {
+  for (const code of [inProjectExitCode, composerExitCode, standaloneExitCode]) {
     if (code !== null && (!Number.isInteger(code) || code < 0 || code > 255)) {
       throw new Error('UCT probe exit codes must be null or integers from 0 to 255')
     }
   }
   if (!['not-attempted', 'completed', 'declined', 'failed'].includes(installationOutcome) ||
+      !['missing', 'execution-failed'].includes(probeFailure) ||
       typeof continueIncomplete !== 'boolean') {
     throw new Error('invalid UCT installation outcome or incomplete-report decision')
   }
   const mode = inProjectExitCode === 0 ? 'in-project'
+    : composerExitCode === 0 ? 'composer'
     : standaloneExitCode === 0 ? 'standalone-fallback' : null
   if (mode) {
     return { status: 'available', mode, scanAllowed: true, incompleteReportAllowed: false,
       reason: 'UCT prerequisite verified; scan and normalization results are still required' }
   }
-  const status = installationOutcome === 'declined' ? 'declined'
+  const status = probeFailure === 'execution-failed' ? 'execution-failed'
+    : installationOutcome === 'declined' ? 'declined'
     : ['failed', 'completed'].includes(installationOutcome) ? 'failed' : 'missing'
   const reasons = {
     missing: 'No working UCT verified; offer the human-run installation procedure',
+    'execution-failed': 'UCT verification could not execute successfully; repair the PHP/environment/access failure before retrying, not an assumed missing installation',
     declined: 'Human-run UCT installation declined; UCT compatibility is Not assessed',
     failed: 'Human-run UCT installation or post-install verification failed; UCT compatibility is Not assessed'
   }

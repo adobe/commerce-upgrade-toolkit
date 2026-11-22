@@ -251,9 +251,11 @@ Apply these in addition to 3.1–3.9; they come from the PS assessment template.
   target (for example `80500`), `level: 6` and paths `app/code`, `app/design`; present it as
   a human-run proposal, not a write. Classify PHP findings as deprecated (for example
   `utf8_encode()`, dynamic properties, nullable arguments to internal functions).
-- **UCT (3.2):** the reference invocation is
-  `<containerPrefix> php -d memory_limit=-1 <uctPath>/bin/uct upgrade:check app/code --current-version=<installed> --coming-version=<target> --json-output-path=context/upgrade-findings.json --min-issue-level=critical --no-interaction`
-  (typed arguments only). Include DB schema findings (`dbschema:diff`, module declarations
+- **UCT (3.2):** use `uct-install` Step 5's safe capture invocation for the live-verified
+  executable, with baseline and target versions and `--min-issue-level=critical`. In file
+  mode, only the helper's private `--json-output-path={uct-report}` placeholder is permitted;
+  never direct UCT to a final audit path. Use typed arguments only.
+  Include DB schema findings (`dbschema:diff`, module declarations
   differing on core tables) as a category. Replacement guidance should name Rector or
   `uct refactor` for mechanical deprecations. Show a legend explaining Critical/Error/Warning.
 - **Services (3.3):** link the official system-requirements and lifecycle-policy pages as
@@ -327,7 +329,9 @@ unavailable evidence, not a zero or cleared quarantine. `assessed` requires veri
 and target run references and actual normalized counts; positive quarantine counts retain gaps.
 
 Read-only helper (routine scope, dependency-free, no network): `node .github/scripts/assess_tools.mjs`
-- `diff-uct <baseline.json> <target.json>` keeps only findings introduced by the target (line numbers ignored).
+- `diff-uct <baseline.json> <target.json>` compares normalized accepted finding arrays by
+  `code + file + strict symbol`; wording, type and line shifts are ignored, duplicate counts
+  preserved. Raw findings without validated identity fields are rejected.
 - `rollup <upgrade-assessment.json>` recomputes the complexity counts and patch-action totals.
 - `validate <upgrade-assessment.json>` rejects effort/duration fields, invalid enums, missing reasons, count mismatches and `UNKNOWN` rows without `gaps`.
 - `uct-prerequisite <live-probe-results.json>` classifies live help/version exit codes and
