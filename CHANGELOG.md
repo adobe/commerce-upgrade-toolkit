@@ -2,7 +2,7 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
-## [1.0.8] (unreleased)
+## [1.0.8]
 
 - Add an experimental host-side setup path that installs or updates the workflows through a temporary Linux container, without entering the project's development container; documented in the setup guide with a feedback checklist.
 - Discover allowlisted documentation links from verified official entry pages; distinguish wrong-path 404s from access denials and keep independently approved UCT work separate from documentation gaps.
@@ -11,7 +11,7 @@ Release history for `@adobe/commerce-upgrade-toolkit`.
 - Remove environment/database bootstrapping from roadmap planning and defer unresolved storefront and encryption decisions without inventing defaults.
 - Preserve live routine authorization, exact-action review, backups, UCT requirements and sensitive human-operated security gates. Provisional summaries are not production-readiness evidence.
 
-## [1.0.7] (unreleased)
+## [1.0.7]
 
 - Compare normalized UCT findings by code, file and strict symbol instead of diagnostic wording or type.
 - Detect Composer UCT executables through the shared prerequisite and distinguish missing tools, execution failures and unsupported normalization.
