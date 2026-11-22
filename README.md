@@ -27,16 +27,9 @@ plugin is required.
 ### 1. Enter your Linux development shell
 
 Start your project's development environment, then enter its Linux shell from the
-**host terminal**. For Warden:
-
-```bash
-warden shell
-```
-
-For other environments, use the [setup guide](docs/setup-guide.md#enter-the-development-shell).
-Installing tools on the host does not install them inside Docker.
-
-### 2. Install the CLI and toolkit plugin
+**host terminal** using your environment's documented shell command. See the
+[setup guide](docs/setup-guide.md#enter-the-development-shell) for environment-specific
+instructions. **Note:** installing tools on the host does not install them inside Docker.
 
 Run the following **inside the Linux shell**:
 
@@ -46,19 +39,46 @@ node --version
 npm --version
 ```
 
-Confirm `Linux` and Node.js 22+. Install into the development user's home:
+Confirm `Linux` and Node.js 22+ before continuing.
+
+### 2. Install Adobe I/O CLI
+
+Run each step separately inside the Linux shell.
+
+**Set the PATH:**
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
+```
+
+**Install Adobe I/O CLI into your user's home:**
+
+```bash
 npm install --global --prefix "$HOME/.local" @adobe/aio-cli
+```
+
+**Verify the installation:**
+
+```bash
+aio --version
+```
+
+Persist the PATH line in your shell startup file. If `aio` is already installed for this
+development user, skip installation and verify it with `aio --version`. No `sudo` is needed.
+
+### 3. Install the toolkit plugin
+
+In the same Linux shell, run:
+
+```bash
 aio plugins:install @adobe/commerce-upgrade-toolkit
 aio commerce upgrade tools-setup --help
 ```
 
-Persist the PATH line in your shell startup file. If the CLI and plugin are already
-installed for this container user, skip their installation commands. No `sudo` is needed.
+If the toolkit plugin is already installed for this user, skip installation and check
+that the setup help is available.
 
-### 3. Set up the Commerce project
+### 4. Set up the Commerce project
 
 From the project root **inside Linux**, run:
 
@@ -83,7 +103,7 @@ dependencies and lock file.
 Continue only after setup reports completion. If it fails, resolve the reported error
 before starting a workflow.
 
-### 4. Open the project in your coding agent
+### 5. Open the project in your coding agent
 
 Open the same Commerce checkout and restart or reload the agent session. The agent can
 remain on the host if the installed files are visible through the project's bind mount or
