@@ -164,7 +164,11 @@ test('capture helpers mirror exactly and all workflow/report callers avoid raw-i
       const text = read(skill(name));
       assert.match(text, /capture_uct\.py/);
       const commands = [...text.matchAll(/capture_uct\.py --project-root \. --agent ([a-z-]+) --mode (stdout|file)/g)];
-      assert.ok(commands.length > 0);
+      if (name === 'uct-install') assert.ok(commands.length > 0);
+      else {
+        assert.equal(commands.length, 0, 'scan skill delegates invocation to the shared gate');
+        assert.match(text, /Use `uct-install` Step 5's `capture_uct\.py` invocation/);
+      }
       assert.ok(commands.every(match => match[1] === (prefix === '.claude' ? 'claude-code' : 'github-copilot')));
       assert.doesNotMatch(text, /--json-output-path=(?:\.claude|\.github)\/context/);
       assert.doesNotMatch(text, />\s*(?:\.claude|\.github)\/context\/upgrade-findings\.json/);

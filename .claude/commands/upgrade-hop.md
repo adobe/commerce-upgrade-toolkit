@@ -374,7 +374,7 @@ Validate that targetVersion matches the next hop in `hopPlan`. If it diverges, h
 
 **UCT prerequisite (analysis mode only):** apply `uct-install`'s **Assessment prerequisite**
 before any fresh/cached scan handling or scan-dependent report. Verify the registered
-command or reviewed standalone version probe in the live environment. If unavailable,
+Magento, Composer or reviewed standalone executable in the live environment. If unavailable,
 offer the human-run installation procedure and re-probe afterward; never install UCT
 or other dependencies from this analysis command.
 
@@ -392,6 +392,9 @@ chosen, pause. No report choice waives `/upgrade-hop-execute` prerequisites.
 With verified tooling, record the availability evidence, then continue the scan workflow
 below. Availability alone is not `status: assessed`; that requires successful capture and
 normalization for the intended version pair. No-argument roadmap planning is unchanged.
+Use the same gate's failure recovery for `execution-failed` and `normalization-unsupported`.
+A later failure requires a fresh explicit incomplete-report choice or stop; retain its
+reason, recovery instructions, null unavailable counts and prior blockers.
 
 Apply the `upgrade-uca-scan` skill before running or reading the scan — it defines how to interpret UCT output, severity levels, and known false-positive patterns for this version pair.
 

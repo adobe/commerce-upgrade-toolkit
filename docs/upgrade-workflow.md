@@ -3,6 +3,20 @@
 The current CLI session acts as the `orchestrator` and runs each slash command directly;
 no custom-agent selection is required. Specialist agents are dispatched per step.
 
+## UCT prerequisite
+
+`/upgrade-assess <version>` and `/upgrade-hop <version>` share a gate that verifies
+registered Magento, Composer and reviewed standalone UCT executables. The no-version
+roadmap is exempt. Manual setup is followed by live re-probing; installation alone is
+not completed assessment evidence.
+
+Completed scan-dependent reporting requires successful capture and supported normalization;
+`/upgrade-assess` requires both baseline and target scans. Tool absence, execution failure
+and unsupported normalization need different recovery actions. Continuing incomplete
+requires explicit consent, visible **Not assessed** reasons/follow-up and null unavailable
+counts. Quarantine blockers and remediation gates remain in effect. See the
+[setup and troubleshooting guide](setup-guide.md).
+
 ## How to import into LucidChart
 1. Open LucidChart → **Insert** → **Import Diagram**
 2. Select **Mermaid**
