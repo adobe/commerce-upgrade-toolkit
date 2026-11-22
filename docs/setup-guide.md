@@ -24,6 +24,55 @@ Project shell helpers can differ; follow your environment's documentation.
 Inside that shell, `uname -s` must report `Linux`. Starting Docker or source synchronization
 does not itself enter the container. Use the container's project path, not the host path.
 
+## Set up from the host with a temporary Linux container (experimental)
+
+Use this on macOS, or on Windows inside WSL, when Docker is available and you do not want to
+enter the project's development container, install Node.js 22 or `aio` there, or persist its
+home directory. A temporary Linux container installs the toolkit into your project folder and
+is then removed. Your Commerce container is not changed.
+
+Requirements: Docker running, access to the npm registry, and a POSIX shell (macOS Terminal
+or WSL). Run from the **host project root**, which contains `composer.json` and `bin/magento`.
+
+```bash
+AGENT="GitHub Copilot"   # or "Claude Code"
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  --mount type=bind,source="$PWD",target=/project -w /project node:22-bookworm \
+  sh -c 'npm install --prefix /tmp/ccua --no-audit --no-fund --ignore-scripts @adobe/commerce-upgrade-toolkit && node /tmp/ccua/node_modules/@adobe/commerce-upgrade-toolkit/scripts/run-tools-setup.js --agent "$0" --project /project' "$AGENT"
+```
+
+It performs the same install or update, version check and integrity verification as
+`aio commerce upgrade tools-setup`. Success ends with `Commerce Upgrade Tools setup complete`;
+the marker is `.github/context/.ccua-version` (Copilot) or `.claude/context/.ccua-version`
+(Claude Code). Then restart your coding agent on the host and run `/upgrade-hop`. To update,
+run the same command again.
+
+To pin a release, replace `@adobe/commerce-upgrade-toolkit` in the `npm install` with
+`@adobe/commerce-upgrade-toolkit@<version>` and append `--tools-version <version>` to the
+setup arguments. Both must match; otherwise the downloaded runner and the installed workflows
+can differ.
+
+What the container can reach: only your project folder, mounted read-write, and the network
+to download the package. It does not run as root, mounts no home directory or Docker socket,
+and downloads with `--ignore-scripts`. Review [security guidance](security-migration.md)
+before upgrading.
+
+Scope and limits:
+
+- This covers installing and updating the workflows only. Magento, Composer and UCT commands
+  still run in the project's development environment through the container prefix the
+  workflow detects.
+- The optional encryption-change checker (`check-encryption-changes.mjs`) is Linux-only and
+  needs a Linux shell.
+- Verified so far on a fixture project; not yet on real Warden, Cloud Docker or Markshust
+  projects, nor native Windows PowerShell.
+- Linux hosts do not need this: run the normal setup directly.
+
+Feedback is welcome. Report, without credentials or customer code: host OS, Docker version,
+environment type (Warden, Markshust, Cloud Docker or other), the setup command you ran, and
+the last error lines. Typical issues: file ownership on the mounted folder, a corporate
+proxy or CA for npm, or Docker file sharing that excludes the project folder.
+
 ## Node.js and user permissions
 
 Check `node --version` and `npm --version` inside the Linux shell. Node.js must be 22+.

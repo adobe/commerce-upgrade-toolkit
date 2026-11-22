@@ -74,8 +74,11 @@ recorded as `not provided` and appears under open items.
 Execute `upgrade-assessment.md` Section 3 in this order, writing each result into the
 in-memory assessment data model (Section 5):
 
-1. 3.3 Platform and services (research via the allowlisted hosts; validate every URL with
-   `research_url.py`; stop the affected item on an evidence gap and record it)
+1. 3.3 Platform and services (discover the system-requirements link from verified official
+   prerequisites with `research_url.py links`, then controlled-fetch the candidate).
+   Record wrong-path 404s separately from access denials. Stop only the affected research
+   item on an evidence gap; continue independently approved UCT work for the verified
+   version pair/environment, without marking platform requirements verified.
 2. 3.1 PHP compatibility
 3. 3.2 Commerce compatibility — with verified UCT, run approved baseline and target
    scans and normalize both before computing differential rows. Without verified UCT,

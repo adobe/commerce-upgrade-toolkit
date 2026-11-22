@@ -7,11 +7,60 @@ commands in agent chat, not in the terminal.
 The current coding-agent session acts as the orchestrator; no custom-agent selection is
 required. It runs approved routines and dispatches specialists as needed.
 
+## Fewer questions, unchanged safeguards
+
+`/upgrade-hop` groups missing non-secret planning inputs in one intake with `unknown` or
+`skip for now` choices. Previously supplied facts are reused as evidence, not consent.
+Unknown storefront type keeps both storefront and API review tracks; unanswered encryption
+proposals remain unresolved, not "no rotation". The hop design and available per-hop
+encryption proposals share one review.
+
+Missing local/dev attestation, environment verification, safe source access or routine
+approval does not block an in-chat **Provisional roadmap - execution not authorized**.
+It uses supplied non-secret facts and permitted public documentation, without inspecting
+an unreviewed checkout, running project commands or writing state/reports outside existing
+approvals. Missing version evidence yields an unversioned checklist, not invented hops.
+Roadmap planning never bootstraps infrastructure, databases or sample data.
+
+The fallback lists facts versus proposals, unknowns and a blocked-step table: action,
+missing evidence/approval, safe fallback and next step. Without report write approval,
+persistence stays pending. A provisional summary is not a completed assessment, execution
+authorization or proof of production readiness.
+
+To unblock a session, request the provisional roadmap and supply current version, edition
+and desired target if known. When ready for live discovery/scans, attest that the exact
+local/dev instance has no production credentials/access and approve its displayed routine
+command/metadata scope. Authorized routines proceed without repeated prompts; host denials
+still apply. Review the proposed hop design and evidence before analysis.
+
+Execution collects backup confirmations and non-secret references, unresolved storefront
+type, Git evidence and encryption review/verification in one checklist. All required
+blockers must pass before remediation. Exact code/command approvals, human-only key
+operations and sensitive security challenges remain separate. Missing UCT still requires
+an explicit incomplete-report choice; incomplete reports cannot authorize execution.
+Never remove safety instructions or grant blanket shell access to bypass a blocker.
+
+## Documentation failures are not UCT failures
+
+The controlled research helper can discover allowlisted navigation/canonical links with
+`research_url.py links <official-entry-page>`, then fetch the selected destination. For
+system requirements, start from the official upgrade prerequisites page rather than guessing
+an installation path. Discovery preserves the source URL/hash and does not follow links.
+Each selected destination still requires controlled retrieval and topic/version review.
+
+HTTP 404 is `http-not-found`, not an access denial (401/403). Record `wrong-path-404` only
+after a linked replacement is verified; otherwise retain the documentation evidence gap.
+TLS/network failures remain separate. No allowlist, redirect or authorization bypass applies.
+For an already verified version pair/environment, continue independently approved UCT work
+despite a documentation gap; platform requirements remain unknown. If no UCT probe/scan ran,
+report **UCT: Not attempted**, not failed or blocked by a scanner.
+
 ## Recommended process
 
-1. **Plan with `/upgrade-hop`.** Confirm the local/development project and environment.
-   The toolkit detects the current version, researches the target and intermediate hops,
-   and writes the upgrade state and roadmap. This is planning only; it does not require UCT.
+1. **Plan with `/upgrade-hop`.** Supply known non-secret facts or skip unresolved inputs.
+   With approved discovery/review/write scope, the toolkit detects versions, researches hops
+   and saves the roadmap. Otherwise it returns a provisional in-chat roadmap/checklist.
+   This is planning only; it does not require UCT or a running database.
 2. **Review the roadmap and select the next hop.** Use the next target in the approved
    plan, not an arbitrary version. If the target or environment is unresolved, stop and
    resolve it before analysis.
@@ -42,7 +91,10 @@ In diagram labels, `version` means a reviewed target release, not the literal wo
 
 ```mermaid
 flowchart TD
-    Plan(["START: /upgrade-hop"]) --> Discover["Confirm local/dev scope<br/>Detect environment and versions<br/>Research and design hop sequence"]
+    Plan(["START: /upgrade-hop"]) --> Scope{"Live discovery scope<br/>approved and available?"}
+    Scope -->|"No / unknown"| Provisional["Provisional in-chat roadmap or checklist<br/>Unknowns and blocked actions<br/>No project execution or unauthorized writes"]
+    Provisional -->|"Resolve inputs and approve live scope"| Scope
+    Scope -->|"Yes"| Discover["Confirm local/dev scope<br/>Detect environment and versions<br/>Research and design hop sequence"]
     Discover --> Roadmap["Write upgrade state and roadmap<br/>Planning only - no compatibility scan"]
     Roadmap --> Target["Review roadmap<br/>Confirm the next planned target"]
     Target --> Analyse["/upgrade-hop version<br/>Approve scope and validate target against plan"]
@@ -61,7 +113,7 @@ flowchart TD
     PreReport --> Review["Human reviews plan and resolves execution blockers"]
     Review --> Execute["/upgrade-hop-execute version"]
     Execute --> Gates{"Pre-execution checks and<br/>exact-change approvals satisfied?"}
-    Gates -->|"No"| Hold["Stop; resolve the blocking prerequisites"]
+    Gates -->|"No"| Hold["Consolidated blocker checklist<br/>Human-run next steps; no remediation"]
     Hold -->|"Retry with approval"| Execute
     Gates -->|"Yes"| Fix["Services and core upgrade<br/>Approved per-chunk remediation"]
     Fix --> Validate["Chunk validation and post-hop checklist<br/>Tests, security and smoke checks"]

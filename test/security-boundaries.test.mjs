@@ -547,6 +547,75 @@ for failure, kind, message in cases:
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('official link discovery resolves validated candidates from fetched content without following them', () => {
+  const result = python(['-c', `
+import importlib.util, io, json, sys
+from contextlib import redirect_stdout
+for prefix in (".claude", ".github"):
+    spec = importlib.util.spec_from_file_location("research_url", prefix + "/scripts/research_url.py")
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    start = "https://experienceleague.adobe.com/en/docs/commerce-operations/upgrade-guide"
+    final = start + "/prepare/prerequisites"
+    target = "https://experienceleague.adobe.com/en/docs/commerce-operations/installation-guide/system-requirements"
+    html = (
+        '<base href="https://attacker.example/">'
+        '<a href="/en/docs/commerce-operations/installation-guide/system-requirements">Requirements</a>'
+        '<a href="../../installation-guide/system-requirements">Duplicate</a>'
+        '<link rel="canonical" href="' + final + '">'
+        '<a href="https://attacker.example/steal">External</a>'
+        '<a href="https://user:password@developer.adobe.com/commerce/">Credentials</a>'
+        '<a href="//developer.adobe.com.attacker.example/commerce/">Lookalike</a>'
+        '<a href="javascript:execute()">Script</a>'
+        '<a href="' + target + '?redirect=evil">Query</a>'
+        '<a href="' + target + '#fragment">Fragment</a>'
+    )
+    calls = []
+    def fetch(url):
+        calls.append(url)
+        return {"url": final, "sha256": "a" * 64, "retrieval_method": "controlled-curl",
+                "fallback_reason": {"error": "HTTPError", "status": 403}, "untrusted_data": html}
+    m.fetch = fetch
+    sys.argv = ["research_url", "links", start]
+    output = io.StringIO()
+    with redirect_stdout(output):
+        assert m.main() == 0
+    data = json.loads(output.getvalue())
+    assert calls == [start], calls
+    assert data["links"] == [target, final], data
+    assert data["url"] == final and data["sha256"] == "a" * 64
+    assert data["retrieval_method"] == "controlled-curl"
+    assert data["fallback_reason"]["status"] == 403
+    assert "untrusted_data" not in data
+    assert "attacker" not in output.getvalue() and "password" not in output.getvalue()
+`]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('research distinguishes missing HTTP paths from access denials without claiming recovery', () => {
+  const result = python(['-c', `
+import importlib.util, io, json, sys
+from contextlib import redirect_stderr, redirect_stdout
+from urllib.error import HTTPError
+for prefix in (".claude", ".github"):
+    spec = importlib.util.spec_from_file_location("research_url", prefix + "/scripts/research_url.py")
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    url = "https://experienceleague.adobe.com/en/docs/commerce-operations/installation/system-requirements"
+    for status, category in ((404, "http-not-found"), (401, "http-access-denied"),
+                             (403, "http-access-denied"), (500, "http-error")):
+        def fail(url): raise HTTPError(url, status, "untrusted message", {}, None)
+        m.fetch = fail
+        sys.argv = ["research_url", "links", url]
+        output, errors = io.StringIO(), io.StringIO()
+        with redirect_stdout(output), redirect_stderr(errors):
+            assert m.main() == 1
+        data = json.loads(errors.getvalue())
+        assert data["failure_kind"] == category, data
+        assert data["status"] == status and data["research_status"] == "unverified"
+        assert output.getvalue() == "" and "sha256" not in data and "links" not in data
+`]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('all report flows permit approved parent persistence without granting child execution', () => {
   const handoff = read('.claude/guardrails/write-scope.md').split('## Document report persistence handoff')[1]
     .split('## Mandatory sequence')[0];
@@ -688,6 +757,62 @@ test('automatic routine profile separates scoped consent from sensitive action a
   assert.match(hop, /Visible terminal tools alone do not block planning/);
   assert.match(hop, /metadata-bootstrap exact-diff approval/);
   assert.ok(hop.indexOf('guardrails/write-scope.md') < hop.indexOf('## PLANNING MODE'));
+});
+
+test('unanswered planning intake returns provisional evidence without granting execution or persistence', () => {
+  for (const prefix of ['.claude', '.github']) {
+    const hop = read(prefix === '.claude' ? `${prefix}/commands/upgrade-hop.md`
+      : `${prefix}/skills/upgrade-hop/SKILL.md`);
+    const scope = read(prefix === '.claude' ? `${prefix}/guardrails/write-scope.md`
+      : `${prefix}/instructions/write-scope.instructions.md`);
+    const planning = hop.split('## PLANNING MODE')[1].split('## ANALYSIS MODE')[0];
+    assert.match(hop, /If unanswered or declined, produce a \*\*Provisional roadmap/);
+    assert.match(scope, /Do not execute\s+project commands, read project source without/);
+    assert.match(scope, /Missing version pairs permit\s+only an unversioned planning checklist/);
+    assert.match(planning, /If unanswered or skipped, keep `implementationType: ~`/);
+    assert.match(planning, /Never assume headless or skip a chunk\/test/);
+    assert.match(planning, /continue Step 2 with a provisional\s+roadmap/);
+    assert.match(planning, /keep the provisional roadmap in chat and skip Steps 5 and 7/);
+    assert.ok(planning.indexOf('### Step 4: Per-Hop Analysis') <
+      planning.indexOf('### Combined planning review'));
+    assert.ok(planning.indexOf('### Combined planning review') <
+      planning.indexOf('### Step 5: Write State'));
+    assert.doesNotMatch(planning, /ask the user before doing anything else|Wait for the response/);
+    assert.doesNotMatch(planning, /simulate a fresh install|bin\/magento setup:install|sampledata:deploy/);
+    assert.match(scope, /A host denial is not permission to retry through another tool or agent/);
+  }
+});
+
+test('planning environment and encryption fallbacks keep unresolved identity and decisions blocking execution', () => {
+  for (const prefix of ['.claude', '.github']) {
+    const skill = (name) => read(prefix === '.claude' ? `${prefix}/skills/${name}.md`
+      : `${prefix}/skills/${name}/SKILL.md`);
+    const environment = skill('environment-detection');
+    const encryption = skill('encryption-and-passwords');
+    assert.match(environment, /unresolved\s+project roots must not select guessed host execution or invoke bootstrap routing/);
+    assert.match(environment, /unresolved identity still blocks project commands/);
+    assert.match(encryption, /keep the decision unresolved \(`~`\)/);
+    assert.match(encryption, /Do not record a proposed true\/false value as a reviewed `encryptionDecision`/);
+    assert.match(encryption, /execution Gate 4 remains blocking/);
+  }
+});
+
+test('execution intake batches backup references and blocks remediation before normalization on missing gates', () => {
+  for (const prefix of ['.claude', '.github']) {
+    const execute = read(prefix === '.claude' ? `${prefix}/commands/upgrade-hop-execute.md`
+      : `${prefix}/skills/upgrade-hop-execute/SKILL.md`);
+    assert.match(execute, /Present one\s+pre-execution checklist/);
+    assert.match(execute, /Collect references with their confirmations, not as separate follow-up prompts/);
+    assert.match(execute, /prior-session references need live reconfirmation/);
+    assert.match(execute, /Unknown\s+required answers block execution/);
+    assert.match(execute, /An advisory media gap requires explicit acknowledgement/);
+    assert.match(execute, /Frontend type must be resolved before selecting\/skipping/);
+    assert.ok(execute.indexOf('return the consolidated review/runbook package before') <
+      execute.indexOf('Before remediation, refresh normalization'));
+    assert.match(execute, /Both `true` and `false` decisions require live human review/);
+    assert.match(execute, /The `approve` step is human-operated through its live TTY challenge/);
+    assert.doesNotMatch(execute, /Ask each question in sequence|ask a follow-up|Ask a follow-up/);
+  }
 });
 
 function generatedSnapshot(dir = join(root, '.github')) {

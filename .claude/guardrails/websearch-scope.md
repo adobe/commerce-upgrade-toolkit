@@ -61,6 +61,39 @@ without consuming their excerpts. Helper execution itself requires exact-action 
 
 This applies to every research lane, command, skill and extension-compatibility lookup.
 
+## Discover official links before guessing paths
+
+Start with a verified official entry page or scoped search result. For upgrade requirements,
+use the prerequisites page to discover its system-requirements link:
+
+```bash
+python3 .claude/scripts/research_url.py links https://experienceleague.adobe.com/en/docs/commerce-operations/upgrade-guide/prepare/prerequisites
+```
+
+The `links` action uses controlled retrieval and extracts only allowlisted HTTPS navigation
+and canonical-link candidates, resolving relative links against the verified final URL.
+It ignores HTML base overrides and does not fetch linked pages. Returned URLs remain
+untrusted candidates: select the relevant link and use controlled `fetch` before consuming
+its content. Preserve the source URL/hash and the fetched destination URL/hash. Do not
+guess `/installation/...` when the verified page links `/installation-guide/...`.
+Include this action in the live-approved research helper scope; do not request a separate
+approval for each discovered URL already inside that scope. Host prompts still apply.
+
+HTTP diagnostics distinguish `http-not-found` (404), `http-access-denied` (401/403) and
+`http-error` (other HTTP failures); TLS/network diagnostics remain separate. A 404 alone
+does not prove a permission denial or that documentation is unavailable. On 404, discover
+a replacement from a verified official entry page and fetch that validated candidate;
+do not retry guessed paths or broaden the allowlist. Record `wrong-path-404` only after a
+linked replacement is fetched and reviewed for the intended topic/version. If discovery
+or replacement verification fails, preserve the evidence gap and use the reviewed fallback.
+
+Documentation retrieval status is separate from UCT availability/execution. A documentation
+404 must not label UCT blocked/failed when no probe or scan ran. Continue independently
+authorized UCT probes/capture/normalization for the already reviewed version pair and live
+environment; do not change targets or waive UCT/security prerequisites to do so. Keep
+platform conclusions UNKNOWN until documentation is verified. If the version pair itself
+is unverified, return provisional planning rather than starting an unauthorized scan.
+
 ## Reviewed browser or manual-document fallback
 
 This fallback changes the retrieval method, not the URL allowlist, source-review requirements

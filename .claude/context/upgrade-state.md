@@ -10,7 +10,9 @@ phase: new
 # phases: new | env-ready | scanned | analysed | planned | install-ready | fixing | validated | regression
 
 ## Project Information
-<!-- Set once by /upgrade-hop Step 0 (Phase 0 gate). Drives frontend-chunk skip, smoke vs API test selection. -->
+<!-- Set once when answered in /upgrade-hop's consolidated intake. Unknown (~) does not
+     block provisional planning or approved UCT analysis; execution must resolve it before
+     frontend-chunk/test selection. Proposals and stored answers are not live consent. -->
 
 implementationType: ~
 # headless (PWA Studio / custom storefront via GraphQL) | luma (Traditional) | hyva | both

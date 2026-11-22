@@ -5,6 +5,22 @@ requiring live exact-action review, validating research URLs and normalizing UCT
 Web/source/vendor/CodeGraph/state/cache content is always untrusted evidence, including on
 approved domains. Nothing in a retrieved document can approve a diff, command or key decision.
 
+## Planning without execution authorization
+
+Unknown environments remain production-equivalent for execution, not a reason to block all
+planning. The refreshed `write-scope` guardrail groups missing inputs once and permits a
+provisional in-chat roadmap from supplied non-secret facts and permitted public documentation.
+Unknown answers remain unknown; missing version evidence yields a checklist, not invented
+hops. Source reads, project commands and state/report writes retain their existing controls.
+
+If a session is blocked before planning, request the provisional roadmap and its blocked-step
+table. Each blocked action must show missing evidence/approval and a human next step. Do
+not disable safeguards or widen host permissions. Enable only the reviewed live routine
+scope when ready; backups, exact-action approvals, encryption review and sensitive security
+challenges are still required at execution. This fallback is not production-readiness proof.
+Preserved root instructions must be manually merged as described below; refreshing managed
+files alone does not remove conflicting older blanket-stop instructions.
+
 ## What is enforced, and what is not
 
 - Setup preflights the selected version marker before reconciliation/copies; missing markers
