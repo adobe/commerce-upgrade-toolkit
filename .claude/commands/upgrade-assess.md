@@ -47,10 +47,14 @@ Usage: `/upgrade-assess <targetVersion>` — the target must match
 ### Step 0a: UCT prerequisite
 
 Apply `uct-install`'s **Assessment prerequisite** before collecting UCT evidence or
-generating scan-dependent reports. Probe existing tooling in the verified environment;
+generating scan-dependent reports. Reuse its Magento, Composer and standalone probes in
+the verified environment; do not create a second detection or installation flow.
 never install dependencies in this command. If missing, offer the human-run installation
 procedure, then re-probe afterward. If installation is declined or fails, continue only
 after the user's explicit incomplete-assessment choice; otherwise pause.
+Use the shared failure recovery for `execution-failed` and `normalization-unsupported`;
+installed tooling is not completed evidence. A later scan/capture/normalization failure
+requires a fresh explicit incomplete-report choice or stop, with its reason and follow-up.
 
 Carry the classified result into `sections.commerceCompatibility`. When unavailable,
 set `status: not-assessed`, `baselineRun: null`, `targetRun: null`,
