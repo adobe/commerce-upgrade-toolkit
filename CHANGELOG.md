@@ -2,6 +2,14 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
+## [1.0.6]
+
+- Verify UCT prerequisites before scan-dependent assessments and hop reports; keep roadmap planning unchanged.
+- Offer human-run installation and explicitly incomplete reports when UCT is unavailable, declined, or fails verification.
+- Preserve unavailable counts, quarantine blockers, and hop execution gates.
+- Clarify workflow usage and installation, scanning, and report ownership.
+- Standardize toolkit-owned report branding across HTML, print/PDF and Markdown while retaining visible evidence gaps and blockers; bundle no corporate assets or presentation dependencies.
+
 ## [1.0.5]
 
 - Allow the approved parent to persist reviewed reports when the documentation agent lacks write tools.

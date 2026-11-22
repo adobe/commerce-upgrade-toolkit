@@ -215,11 +215,11 @@ test('extension provenance and UCT ownership preserve reviewed evidence and gate
     assert.match(extensions, /keep compatibility UNKNOWN and blocking/);
     const uct = skill('uct-install');
     assert.match(uct, /Execution ownership \(all steps\)/);
-    assert.match(uct, /separate exact-command\/cwd\/environment\/effect/);
+    assert.match(uct, /human-run outside the assessment/);
     assert.match(uct, /automatically runs authorized probe, capture, scan and normalization/);
     assert.match(uct, /local\/dev non-production/);
-    assert.match(uct, /no automatic retry or blanket/);
-    assert.match(uct, /If host approval\/isolation is unavailable, the human runs/);
+    assert.match(uct, /agent never installs or retries dependencies/);
+    assert.match(uct, /If approved scan\nexecution is unavailable, the human runs/);
     assert.doesNotMatch(uct, /^Run the helper on the host/m);
   }
 });

@@ -44,6 +44,20 @@ Usage: `/upgrade-assess <targetVersion>` — the target must match
 3. Determine `fromVersion` from the installed Commerce version; stop if it cannot be
    determined or is not older than `targetVersion`.
 
+### Step 0a: UCT prerequisite
+
+Apply `uct-install`'s **Assessment prerequisite** before collecting UCT evidence or
+generating scan-dependent reports. Probe existing tooling in the verified environment;
+never install dependencies in this command. If missing, offer the human-run installation
+procedure, then re-probe afterward. If installation is declined or fails, continue only
+after the user's explicit incomplete-assessment choice; otherwise pause.
+
+Carry the classified result into `sections.commerceCompatibility`. When unavailable,
+set `status: not-assessed`, `baselineRun: null`, `targetRun: null`,
+`differentialRows: []`, `debtCategories: []`, `quarantineCount: null`, and a non-empty
+`reason`. Add a UCT evidence gap and the human-run follow-up. Show **Not assessed** in
+the report; empty differential rows are not proof that no incompatibilities exist.
+
 ## Step 1: Context intake
 
 Ask the user (one form) for: customer/project name, audience (names/roles), objective,
@@ -59,7 +73,10 @@ in-memory assessment data model (Section 5):
 1. 3.3 Platform and services (research via the allowlisted hosts; validate every URL with
    `research_url.py`; stop the affected item on an evidence gap and record it)
 2. 3.1 PHP compatibility
-3. 3.2 Commerce compatibility — baseline and target UCT runs, differential rows only
+3. 3.2 Commerce compatibility — with verified UCT, run approved baseline and target
+   scans and normalize both before computing differential rows. Without verified UCT,
+   skip scans/differential computation and retain **Not assessed**, null counts and gaps.
+   Never consume an old scan to disguise a missing or failed prerequisite.
 4. 3.5 Third-party modules, including the modified-vendor diff and client input list
 5. 3.6 Custom modules, including removal candidates
 6. 3.7 Patches (dry runs only when a pristine target tree was supplied; otherwise
@@ -101,7 +118,10 @@ write tools, the approved parent may persist only the complete reviewed proposal
 two files. Read back and verify each document before printing its path as a saved artifact.
 
 Unknown, blocked and not-assessed items must be visible in the report, inside the relevant
-table row. The report follows the PM five-chapter template in Section 6 and omits the
+table row. For unavailable UCT, the Commerce compatibility chapter explicitly says
+**Not assessed**, with the reason and manual installation/re-run instructions; never
+show a clean scan, zero critical findings or upgrade readiness. Retain quarantine blockers
+when scans did run. The report follows the PM five-chapter template in Section 6 and omits the
 internal chapters (core upgrade, Composer, complexity/delivery, open items). It must end
 with the one-line "not proof of production readiness" statement.
 

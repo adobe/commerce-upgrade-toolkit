@@ -163,6 +163,51 @@ Run these commands in your coding agent, not in the terminal:
 
 Complete and validate each approved hop separately. See the [workflow guide](docs/upgrade-workflow.md) for details.
 
+### Choosing a workflow and who runs it
+
+```text
+/upgrade-hop
+/upgrade-assess 2.4.9
+/upgrade-hop 2.4.9
+```
+
+- **`/upgrade-hop` without a version** plans the roadmap from environment and official
+  release evidence. It does not require UCT and is not a completed compatibility scan.
+- **`/upgrade-assess <version>`** produces a read-only HTML/Markdown assessment. It may
+  run approved existing compatibility tools, but never installs dependencies, changes
+  application code, or performs an upgrade.
+- **`/upgrade-hop <version>`** analyzes the next approved roadmap hop. It checks UCT
+  before scans or scan-dependent reporting; it does not install UCT automatically.
+- **`/upgrade-hop-execute <version>`** is a separate, gated workflow for approved changes.
+  A roadmap or incomplete assessment is not authorization to execute.
+
+The current coding-agent session owns discovery, approved scans/normalization, and scoped
+metadata updates. The documentation agent composes reports; if it is read-only, the parent
+persists only the exact approved document and verifies it by read-back. Run Commerce/PHP
+probes and scans in the detected development environment, not against host PHP by accident.
+
+### UCT prerequisite and incomplete reports
+
+The agent checks an existing registered UCT command or a reviewed standalone UCT location
+using help/version probes. A successful probe means the tool is available, not that the
+scan passed. Cached install paths are rechecked.
+
+If UCT is missing, the agent offers **manual installation**, **continue incomplete**, or
+**stop**. The developer owns installation outside the read-only assessment, including
+reviewing Composer effects and credentials. A standalone installation keeps UCT's
+dependencies separate from the Commerce project; use the human-run procedure supplied by
+the installed `uct-install` skill. The agent must not run Composer installs for you.
+
+After installation, the agent verifies UCT again before running approved scans. For
+`/upgrade-assess`, both baseline and target scans are normalized before differential
+findings are reported. Quarantined findings remain visible blockers.
+
+If installation is declined or fails, an incomplete report requires an explicit choice
+to continue. It shows **UCT: Not assessed**, the reason, unavailable counts, and manual
+follow-up. It never reports zero issues, a clean scan, or a cleared quarantine count.
+An incomplete hop stays unanalysed and cannot proceed to remediation until a working UCT,
+fresh analysis, and all existing safety gates are satisfied.
+
 ## Safe use and limitations
 
 - Approve the environment, plan, and exact changes before applying fixes.
@@ -172,6 +217,18 @@ Complete and validate each approved hop separately. See the [workflow guide](doc
 - AI recommendations and generated reports do not guarantee compatibility or production readiness. Complete project-specific validation and release approval.
 
 Reports are generated as local files in your Commerce project, not hosted by this repository. Assessment PDF/DOCX conversion is human-operated.
+
+### Report presentation
+
+All report flows use shared toolkit-owned presentation rules: Adobe Commerce Upgrade Toolkit
+attribution, red accents, readable system fonts and consistent HTML/print/Markdown identity.
+Planning-only, incomplete and blocked statuses remain visible alongside evidence gaps and
+human follow-up; exporting a report does not change its assessment status or imply readiness.
+
+Reports are self-contained and need no external fonts, corporate templates, telemetry or
+additional MCP setup. Corporate logos/fonts/templates are not bundled; their redistribution
+requires separate approval. This is not a certification of Adobe brand compliance.
+PowerPoint export is not included. Report ownership and conversion permissions are unchanged.
 
 Read the [security and existing-install guidance](docs/security-migration.md) before using the toolkit or resuming an older installation.
 
