@@ -335,6 +335,8 @@ the report or broaden permissions. Give the agent:
   - {{FROM_VERSION}}: fromVersion (first hop's from)
   - {{TO_VERSION}}: toVersion (final hop's to)
   - {{REPORT_DATE}}: today's date
+  - {{PROJECT_NAME}}: confirmed project name from `## Project Information`; if absent,
+    show "Project name not confirmed", never infer a customer name from the directory
   - {{EFFORT_TIER}}: highest effortTier across all hops
   - {{HOP_PLAN_ROWS}}: one `<tr>` per hop with columns from, to, effortTier, reason
   - {{HOP_PROGRESS_ROWS}}: one row per hop — status = "planned" for all hops on first write, with a link placeholder for its hop-version report (filled in once that hop's report exists)
@@ -369,6 +371,27 @@ Validate that targetVersion matches the next hop in `hopPlan`. If it diverges, h
 "⚠️ {targetVersion} does not match the next hop in your plan ({expectedNextHop}). Run `/upgrade-hop {expectedNextHop}` instead, or re-run planning mode if the hop design needs to change."
 
 ### Step 2: UCT Scan
+
+**UCT prerequisite (analysis mode only):** apply `uct-install`'s **Assessment prerequisite**
+before any fresh/cached scan handling or scan-dependent report. Verify the registered
+command or reviewed standalone version probe in the live environment. If unavailable,
+offer the human-run installation procedure and re-probe afterward; never install UCT
+or other dependencies from this analysis command.
+
+If installation is declined or fails, allow a report only after the explicit live choice
+to continue incomplete. Record `currentHop.uctAssessment` with this version pair,
+`status: not-assessed`, the classified prerequisite result/reason and unavailable counts.
+Do not consume stale findings, normalize absent scans, categorize fabricated records, or
+run the numeric UCT effort-tier calculation. Leave the hop unanalysed; do not clear prior
+quarantine/recovery blockers or reset existing completion state.
+Gather only independently verifiable release/service/extension evidence and go to Step 7
+with a **Not assessed — incomplete** report. UCT/domain/critical/quarantine counts are
+unavailable, not zero, and scan-derived effort is UNKNOWN. If incomplete reporting is not
+chosen, pause. No report choice waives `/upgrade-hop-execute` prerequisites.
+
+With verified tooling, record the availability evidence, then continue the scan workflow
+below. Availability alone is not `status: assessed`; that requires successful capture and
+normalization for the intended version pair. No-argument roadmap planning is unchanged.
 
 Apply the `upgrade-uca-scan` skill before running or reading the scan — it defines how to interpret UCT output, severity levels, and known false-positive patterns for this version pair.
 
@@ -412,52 +435,12 @@ If `editionType` is `cloud`, resolve the scan target per the `upgrade-uca-scan` 
 `targetVersion` straight through unresolved, since it may not match the Cloud metapackage's
 actual pinned version.
 
-**Pre-scan checkpoint (dirty-worktree gate):** the `uct-install` skill's in-project path runs
-`composer require magento/upgrade-compatibility-tool --dev` — a real composer.json/composer.lock
-mutation, and the first one this hop can trigger. Before invoking that skill:
-```bash
-git status --porcelain
-```
-If output is not empty: "⚠️ Uncommitted changes detected. Commit or stash all changes before
-running the UCT scan — a dirty worktree here means an incidental UCT-install composer mutation
-can't be cleanly distinguished from existing uncommitted work if it ever needs to be unwound."
-Stop. Do not reset, stash automatically, or otherwise mutate the worktree yourself — preserve
-whatever is dirty and let the human resolve it.
-
-If clean, capture a narrow `scan-tooling` checkpoint (code/lock-only — this guards the UCT
-install itself, not application data) as a new row in `context/upgrade-state.md`'s
-`## Checkpoints` table:
-- `id`: next sequential `ckpt-{n}`
-- `type`: `scan-tooling`
-- `environment`: confirmed exact project/application/environment identity and type, not a
-  guessed `dev` label. Stop if unknown or production; an in-project tooling install must
-  never mutate a live production codebase.
-- `hop`: `{fromVersion}→{targetVersion}`
-- `capturedAt`: now
-- `codeSha`: `git rev-parse HEAD`
-- `releaseRef`: `git rev-parse --abbrev-ref HEAD` + `@` + short SHA (read-only — no tag/branch/commit created)
-- `lockHash`: `sha256sum composer.lock` output, or `n/a` if composer.lock is absent
-- `runtimeRefs`, `dbBackupRef`, `mediaBackupRef`, `configKeyRef`, `infraBackupRef`: `n/a` (not applicable to this checkpoint type)
-- `verification`: `not-applicable-code-only`
-- `expiry`: `n/a`
-- `status`: `active`
-
-If `uctInstallMode` is already `in-project` or `standalone-fallback` from a prior run of this
-hop (the skill's Step 1 cached-mode check), the in-project composer mutation already happened
-in an earlier session — skip this checkpoint capture; it would just duplicate a row for a
-mutation that already occurred and was already (or wasn't) captured then. Only capture it the
-first time this hop attempts the in-project install.
-
-If a new checkpoint was captured, record `mutation-started` before the tooling installation
-and its actual outcome afterward. A failed/interrupted Composer attempt is not assumed to
-have left composer.json/lock/vendor unchanged.
-
-Apply the `uct-install` skill to install and run the scan (never a bare `--coming-version`
-literal on a Cloud project — pass `resolvedTargetVersion` from the metapackage resolution
-above). The skill tries the in-project install first and falls back automatically to a
-standalone install if that hits a dependency-resolution conflict (e.g. the permanent
-`nikic/php-parser` conflict on Commerce 2.4.8+ targets) — do not run `composer require
-magento/upgrade-compatibility-tool --dev` directly here.
+Apply `uct-install` Step 5 using the live-verified existing mode (never a bare
+`--coming-version` literal on a Cloud project — pass `resolvedTargetVersion` from the
+metapackage resolution above). Installation/checkpoint/worktree preparation belongs to the
+human-run procedure outside this command. A failed human Composer attempt is not assumed
+to have left dependencies unchanged; unresolved dependency/runtime effects block scanning.
+Do not run `composer require` or an automatic standalone fallback here.
 
 Use `uct-install`'s approved `capture_uct.py` invocation to publish raw JSON safely.
 Never use shell redirection to the final raw destination, modify raw JSON for cache metadata,
@@ -470,6 +453,9 @@ python3 .claude/scripts/json_to_toon.py .claude/context/upgrade-findings.normali
 Normalization must complete before TOON conversion. Preserve accepted/quarantined and raw
 counts; missing counts are unavailable, not zero. Unknown/quarantined records remain counted
 human-review blockers. Never read raw diagnostic/quarantine text into agent prompts.
+After successful version-pair capture/cache validation and normalization, record
+`currentHop.uctAssessment.status: assessed` and its verified evidence references/counts.
+Keep unresolved quarantine findings blocking even though the scan ran.
 
 ### Step 3: Categorize Findings
 
@@ -548,11 +534,19 @@ This is the **hop-version analysis report** — a separate, detailed report scop
 
 Write path per the skill: `.claude/reports/hop-{n}-{fromVersion}-{targetVersion}-plan.html`.
 
-Once the agent confirms, update the roadmap report (output/upgrade-roadmap-{date}.html, if it exists) — set this hop's {{HOP_PROGRESS_ROWS}} status to "analysed" and link to the hop-version report just written. This roadmap update can be done directly in this session (it's a small placeholder patch, not a full report build).
+For the explicit incomplete branch from Step 2, show **UCT: Not assessed** with reason and
+human-run follow-up in the report; mark scan-derived tasks/counts/effort unavailable.
+Retain independently verified findings and existing safety blockers, but never present them
+as UCT output. Persist through the document handoff and verify read-back as usual.
+
+Once persistence is verified, update the roadmap report (output/upgrade-roadmap-{date}.html,
+if it exists), linking the report with status "incomplete — UCT Not assessed" for that branch,
+or "analysed" for a completed scan analysis. Do not mark an incomplete hop analysed.
 
 Record the path in context/upgrade-state.md's `## Reports` section:
 `hopVersionReports.{targetVersion}.pre = .claude/reports/hop-{n}-{fromVersion}-{targetVersion}-plan.html`.
-Also update this hop's row in the `## Hop progress` table: `Pre-report` = this path, `Status` = "analysed".
+Also update this hop's row in the `## Hop progress` table: `Pre-report` = this path,
+`Status` = "incomplete — UCT Not assessed" or "analysed" according to the verified branch.
 
 Print: "Hop-version report saved to .claude/reports/hop-{n}-{fromVersion}-{targetVersion}-plan.html"
 
