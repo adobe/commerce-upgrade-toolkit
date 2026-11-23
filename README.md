@@ -10,28 +10,78 @@ Service (SaaS) extension development.
 
 | Requirement | Details |
 | --- | --- |
-| Development environment | Linux with `/proc`, Node.js 22+ and npm. On macOS or Windows, run setup inside your project's Linux development container; native setup is not supported. |
-| Commerce project | An existing local/development checkout with `composer.json` and `bin/magento`, writable by the normal development user. |
+| Development environment | Node.js 22+ and npm, either on your host (macOS, Linux, or Windows through WSL) or inside the project's Linux development container. Setup on the host keeps your Commerce container as it is. Magento, Composer and UCT commands run in your project's existing development environment (Warden, Cloud Docker, Markshust, another Docker setup, or a plain Linux shell), which the agent detects. Windows runs through WSL. |
+| Commerce project | An existing local/development checkout with `composer.json` and `bin/magento`, writable by the normal development user. If you run setup on the host (Option A), its path must not contain symbolic links. |
 | Coding agent | [GitHub Copilot](https://github.com/features/copilot) or [Claude Code](https://claude.com/claude-code), installed and authenticated. |
 | Documentation research | Python 3 with a trusted CA store and curl, available where the coding agent runs research. |
-| Compatibility assessment | Working Upgrade Compatibility Tool (UCT), successful required scans and supported normalization. UCT is not required for toolkit installation or planning-only roadmaps. |
+| Compatibility assessment | Working Upgrade Compatibility Tool (UCT), successful required scans and supported normalization. Toolkit installation and planning-only roadmaps work without UCT. |
 
-Use a local/development environment without production access or credentials. Do not run
-setup as root.
+Use a local/development environment without production access or credentials. Run setup
+as your normal user.
 
 ## Installation
 
-The toolkit plugin provides `aio commerce upgrade tools-setup`; no separate Commerce CLI
-plugin is required.
+The toolkit plugin provides `aio commerce upgrade tools-setup`; it is the only plugin you
+need.
 
-### 1. Enter your Linux development shell
+Choose where to run setup. Both options give the same result: setup only downloads the
+toolkit from npm and copies its workflow files into your project folder. Use **Option A**
+(the host) if you work on macOS or your development container cannot reach npm; use
+**Option B** if you prefer to work inside the container. See the
+[setup guide](docs/setup-guide.md) for where each part runs.
 
-Start your project's development environment, then enter its Linux shell from the
-**host terminal** using your environment's documented shell command. See the
-[setup guide](docs/setup-guide.md#enter-the-development-shell) for environment-specific
-instructions. **Note:** installing tools on the host does not install them inside Docker.
+### Option A: From your host terminal (macOS, Linux or WSL)
 
-Run the following **inside the Linux shell**:
+Run these in your host terminal. Your Commerce container stays as it is.
+
+**1. Check Node.js**
+
+```bash
+node --version
+npm --version
+```
+
+Confirm Node.js 22+ before continuing.
+
+**2. Install Adobe I/O CLI**
+
+```bash
+npm install --global @adobe/aio-cli
+aio --version
+```
+
+If `aio` is already installed, skip the install and verify it with `aio --version`. If the
+install fails with `EACCES`, use the user-home install in Option B step 2 instead of `sudo`.
+
+**3. Install the toolkit plugin**
+
+```bash
+aio plugins:install @adobe/commerce-upgrade-toolkit
+aio commerce upgrade tools-setup --help
+```
+
+If the plugin is already installed, run `aio plugins:update` to get the latest version
+first. Plugin versions before 1.0.9 refuse macOS hosts.
+
+**4. Set up the Commerce project**
+
+```bash
+cd /path/to/commerce/project
+ls composer.json bin/magento
+aio commerce upgrade tools-setup
+```
+
+Use the project's path on your host, which must not contain symbolic links. Choose
+**GitHub Copilot** or **Claude Code** when prompted.
+
+### Option B: Inside the Linux development container
+
+Start your project's development environment, then enter its Linux shell from the host
+terminal with your environment's documented command (see the
+[setup guide](docs/setup-guide.md#development-shell-commands-for-human-run-steps)).
+Run the following **inside that shell**:
+
+**1. Check the shell and Node.js**
 
 ```bash
 uname -s
@@ -39,48 +89,27 @@ node --version
 npm --version
 ```
 
-Confirm `Linux` and Node.js 22+ before continuing.
+Confirm `Linux` and Node.js 22+. The container must be able to reach the npm registry.
 
-### 2. Install Adobe I/O CLI
-
-Run each step separately inside the Linux shell.
-
-**Set the PATH:**
+**2. Install Adobe I/O CLI into your user's home**
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
-```
-
-**Install Adobe I/O CLI into your user's home:**
-
-```bash
 npm install --global --prefix "$HOME/.local" @adobe/aio-cli
-```
-
-**Verify the installation:**
-
-```bash
 aio --version
 ```
 
-Persist the PATH line in your shell startup file. If `aio` is already installed for this
-development user, skip installation and verify it with `aio --version`. No `sudo` is needed.
+Persist the PATH line in the user's shell startup file. If `aio` is already installed for
+this user, skip installation. No `sudo` is needed.
 
-### 3. Install the toolkit plugin
-
-In the same Linux shell, run:
+**3. Install the toolkit plugin**
 
 ```bash
 aio plugins:install @adobe/commerce-upgrade-toolkit
 aio commerce upgrade tools-setup --help
 ```
 
-If the toolkit plugin is already installed for this user, skip installation and check
-that the setup help is available.
-
-### 4. Set up the Commerce project
-
-From the project root **inside Linux**, run:
+**4. Set up the Commerce project**
 
 ```bash
 cd /path/to/commerce/project/in/container
@@ -88,26 +117,31 @@ ls composer.json bin/magento
 aio commerce upgrade tools-setup
 ```
 
-Skip `cd` if already at the project root. Use the container's path, not a host path such
-as `/Users/...`. Choose **GitHub Copilot** or **Claude Code** when prompted.
+Use the container's path, not a host path such as `/Users/...`. Choose **GitHub Copilot** or
+**Claude Code** when prompted. The `aio` home directory often is not persisted across
+container rebuilds, so expect to repeat steps 2 and 3 after one.
+
+### What setup does
 
 Setup downloads the toolkit from npm, installs the selected workflows, and verifies their
-installed version and integrity. It does not install UCT or change your project's npm
-dependencies and lock file.
+installed version and integrity. Your project's npm dependencies and lock file stay as they
+are, and UCT is set up separately when you need it.
 
 | Agent | Installed files |
 | --- | --- |
 | GitHub Copilot | `.github/` instructions, agents, skills and helpers |
 | Claude Code | `.claude/` workflows and helpers, plus `CLAUDE.md` |
 
-Continue only after setup reports completion. If it fails, resolve the reported error
-before starting a workflow.
+Continue only after setup reports completion. If it fails, see the
+[setup guide](docs/setup-guide.md#troubleshooting).
 
-### 5. Open the project in your coding agent
+### Open the project in your coding agent
 
-Open the same Commerce checkout and restart or reload the agent session. The agent can
-remain on the host if the installed files are visible through the project's bind mount or
-two-way synchronization.
+Open the Commerce project and restart or reload the agent session. The agent can run on the
+host as long as the installed files are visible in the same checkout. It detects your
+environment (Warden, Cloud Docker, Markshust, another Docker setup, or a plain Linux shell)
+and runs `bin/magento`, Composer and UCT commands inside your existing container, for
+example through `warden shell --`.
 
 In **agent chat, not the terminal**, run:
 

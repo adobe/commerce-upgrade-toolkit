@@ -9,13 +9,25 @@ import { resolve, parse, relative, sep } from 'node:path'
 
 // Held refs prevent following replacement symlinks, not same-UID actors moving held directories.
 // Attachment checks diagnose drift; they are not locks or an OS permission boundary.
+// Linux addresses a held directory through /proc/self/fd/<fd>. macOS addresses it through volfs
+// (/.vol/<dev>/<ino>), which resolves by inode and keeps reaching the original directory after
+// its path is replaced; the descriptor stays open, so the inode cannot be recycled meanwhile.
+// Any host or filesystem where that reference does not resolve fails closed.
+const REFERENCES = {
+  linux: descriptor => `/proc/self/fd/${descriptor}`,
+  darwin: descriptor => {
+    const held = fstatSync(descriptor, { bigint: true })
+    return `/.vol/${held.dev}/${held.ino}`
+  },
+}
+
 export function openAnchoredDirectory(directory, { create = false, createRoot } = {}) {
-  if (process.platform !== 'linux' || !constants.O_DIRECTORY || !constants.O_NOFOLLOW) {
-    throw new Error('Anchored publication requires Linux procfs; unsupported hosts must use reviewed human remediation.')
+  const reference = REFERENCES[process.platform]
+  if (!reference || !constants.O_DIRECTORY || !constants.O_NOFOLLOW) {
+    throw new Error('Anchored publication requires Linux procfs or macOS volfs; unsupported hosts must use reviewed human remediation.')
   }
   const chain = []
   const flags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
-  const reference = descriptor => `/proc/self/fd/${descriptor}`
   const entry = (descriptor, name) => {
     if (typeof name !== 'string' || !name || name === '.' || name === '..' ||
         name.includes('/') || name.includes('\0')) {

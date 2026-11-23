@@ -924,7 +924,7 @@ test('a hardlinked working source fails closed before reading its content', () =
 });
 
 test('an ancestor swapped during source opening cannot redirect the read outside the repo',
-  { skip: process.platform !== 'linux' ? 'Linux descriptor protections required' : false }, () => {
+  { skip: !['linux', 'darwin'].includes(process.platform) ? 'Linux procfs or macOS volfs descriptor protections required' : false }, () => {
     for (const script of [checkerScript, mirroredCheckerScript]) {
       const dir = makeRepo();
       const outside = mkdtempSync(join(tmpdir(), 'ccua-enc-outside-'));
@@ -938,16 +938,18 @@ test('an ancestor swapped during source opening cannot redirect the read outside
         writeFileSync(preload, `
 const fs = require('node:fs');
 const original = fs.openSync;
+const outsideFile = fs.statSync(${JSON.stringify(join(outside, 'Race.php'))});
 let swapped = false;
 fs.openSync = function(file, ...args) {
-  if (!swapped && String(file).startsWith('/proc/self/fd/') && String(file).endsWith('/Race.php')) {
+  if (!swapped && /^\\/(?:proc\\/self\\/fd|\\.vol)\\//.test(String(file)) && String(file).endsWith('/Race.php')) {
     swapped = true;
     fs.renameSync(${JSON.stringify(parent)}, ${JSON.stringify(join(dir, 'held-model'))});
     fs.symlinkSync(${JSON.stringify(outside)}, ${JSON.stringify(parent)});
     fs.writeFileSync(${JSON.stringify(swapped)}, 'swapped');
   }
   const descriptor = original(file, ...args);
-  if (fs.realpathSync('/proc/self/fd/' + descriptor) === ${JSON.stringify(join(outside, 'Race.php'))}) {
+  const opened = fs.fstatSync(descriptor);
+  if (opened.dev === outsideFile.dev && opened.ino === outsideFile.ino) {
     fs.writeFileSync(${JSON.stringify(openedOutside)}, 'outside descriptor opened');
   }
   return descriptor;
