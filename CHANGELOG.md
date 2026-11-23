@@ -2,7 +2,7 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
-## [1.0.9] (unreleased)
+## [1.0.9]
 
 - Run toolkit setup and updates natively on macOS hosts: the anchored file-write helper now addresses held directories through macOS volfs (`/.vol/<device>/<inode>`) as it does through `/proc/self/fd` on Linux, keeping the no-follow and held-directory protections and failing closed where the reference does not resolve.
 - Document installing Adobe I/O CLI, the plugin and the toolkit from the host terminal, with nothing installed in the Commerce container; the agent still runs Magento, Composer and UCT commands inside the detected container.
