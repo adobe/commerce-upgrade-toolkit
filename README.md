@@ -10,19 +10,19 @@ Service (SaaS) extension development.
 
 | Requirement | Details |
 | --- | --- |
-| Development environment | Node.js 22+ and npm, either on your host (macOS, Linux, or Windows through WSL) or inside the project's Linux development container. Running setup on the host installs nothing in the container. Magento, Composer and UCT commands run in your project's existing development environment (Warden, Cloud Docker, Markshust, another Docker setup, or a plain Linux shell), which the agent detects. Native Windows is not supported. |
+| Development environment | Node.js 22+ and npm, either on your host (macOS, Linux, or Windows through WSL) or inside the project's Linux development container. Setup on the host keeps your Commerce container as it is. Magento, Composer and UCT commands run in your project's existing development environment (Warden, Cloud Docker, Markshust, another Docker setup, or a plain Linux shell), which the agent detects. Windows runs through WSL. |
 | Commerce project | An existing local/development checkout with `composer.json` and `bin/magento`, writable by the normal development user. If you run setup on the host (Option A), its path must not contain symbolic links. |
 | Coding agent | [GitHub Copilot](https://github.com/features/copilot) or [Claude Code](https://claude.com/claude-code), installed and authenticated. |
 | Documentation research | Python 3 with a trusted CA store and curl, available where the coding agent runs research. |
-| Compatibility assessment | Working Upgrade Compatibility Tool (UCT), successful required scans and supported normalization. UCT is not required for toolkit installation or planning-only roadmaps. |
+| Compatibility assessment | Working Upgrade Compatibility Tool (UCT), successful required scans and supported normalization. Toolkit installation and planning-only roadmaps work without UCT. |
 
-Use a local/development environment without production access or credentials. Do not run
-setup as root.
+Use a local/development environment without production access or credentials. Run setup
+as your normal user.
 
 ## Installation
 
-The toolkit plugin provides `aio commerce upgrade tools-setup`; no separate Commerce CLI
-plugin is required.
+The toolkit plugin provides `aio commerce upgrade tools-setup`; it is the only plugin you
+need.
 
 Choose where to run setup. Both options give the same result: setup only downloads the
 toolkit from npm and copies its workflow files into your project folder. Use **Option A**
@@ -32,7 +32,7 @@ toolkit from npm and copies its workflow files into your project folder. Use **O
 
 ### Option A: From your host terminal (macOS, Linux or WSL)
 
-Run these in your host terminal. Nothing is installed in the Commerce container.
+Run these in your host terminal. Your Commerce container stays as it is.
 
 **1. Check Node.js**
 
@@ -51,7 +51,7 @@ aio --version
 ```
 
 If `aio` is already installed, skip the install and verify it with `aio --version`. If the
-install fails with `EACCES`, do not use `sudo`; use the user-home install in Option B step 2.
+install fails with `EACCES`, use the user-home install in Option B step 2 instead of `sudo`.
 
 **3. Install the toolkit plugin**
 
@@ -124,8 +124,8 @@ container rebuilds, so expect to repeat steps 2 and 3 after one.
 ### What setup does
 
 Setup downloads the toolkit from npm, installs the selected workflows, and verifies their
-installed version and integrity. It does not install UCT or change your project's npm
-dependencies and lock file.
+installed version and integrity. Your project's npm dependencies and lock file stay as they
+are, and UCT is set up separately when you need it.
 
 | Agent | Installed files |
 | --- | --- |

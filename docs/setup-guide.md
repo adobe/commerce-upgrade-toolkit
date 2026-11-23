@@ -13,9 +13,9 @@ fallback and troubleshooting.
 | Coding agent and its upgrade workflows | The host, on the Commerce project folder. |
 | Magento, Composer and UCT commands | Your existing development container, through the command wrapper the workflow detects (for example `warden shell --`). |
 
-With Option A nothing is installed in the development container. Setup only downloads an
-npm package and copies workflow files into the project folder, so it does not need that
-container's Node.js, network access or home directory. The workflow's environment detection
+With Option A your development container stays as it is. Setup downloads an npm package and
+copies workflow files into the project folder, so it uses only the host's Node.js, network
+access and home directory. The workflow's environment detection
 identifies Warden, Markshust, Cloud Docker or a custom Docker setup from `docker ps`, or a
 plain Linux shell, and runs `bin/magento`, Composer and UCT commands through the matching
 wrapper. It asks for the container only when detection cannot resolve it.
@@ -25,7 +25,7 @@ wrapper. It asks for the container only when detection cannot resolve it.
 - macOS or Linux with Node.js 22+ and npm. On Windows, use WSL (native Windows is not
   supported).
 - The Commerce project folder on the host's filesystem, with `composer.json` and
-  `bin/magento`, writable by your normal user. Do not run setup as root.
+  `bin/magento`, writable by your normal user. Run setup as that user.
 - A project path **without symbolic links** in any parent directory. Setup refuses such
   paths so a swapped link cannot redirect writes. On macOS this means `/var`, `/tmp` and
   `/etc` (system links) and any folder you linked yourself. Use the real path, for example
@@ -37,7 +37,7 @@ wrapper. It asks for the container only when detection cannot resolve it.
 
 ## Development shell commands (for human-run steps)
 
-Option A does not need these. Use them for Option B, to enter the container before running
+Use these for Option B, to enter the container before running
 setup, and whenever a workflow asks you to run a command in the development container
 yourself, such as installing UCT. Run from the host terminal at the Commerce project root:
 
@@ -116,8 +116,8 @@ directory (nvm, Homebrew, fnm):
 npm install --global @adobe/aio-cli
 ```
 
-If that fails with `EACCES`, or inside a container, install into your user home instead.
-Never use `sudo` or change system-directory permissions:
+If that fails with `EACCES`, or inside a container, install into your user home instead,
+which keeps system directories and permissions untouched:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -125,7 +125,7 @@ npm install --global --prefix "$HOME/.local" @adobe/aio-cli
 ```
 
 Add the `export PATH=...` line to your shell startup file, such as `~/.zshrc` or `~/.bashrc`.
-Use your normal user with a writable home and Commerce project; do not run setup as root.
+Use your normal user with a writable home and Commerce project, and run setup as that user.
 In a container the CLI and plugin live in the container user's home, separately from Commerce
 source. Persist that home using the environment's supported configuration or include the
 tools in the development image; otherwise reinstall after the container is recreated.
@@ -178,11 +178,11 @@ from updating the project's installed workflows; rerun setup for those.
 
 | Symptom | Recovery |
 | --- | --- |
-| `getaddrinfo ENOTFOUND registry.npmjs.org` or another network error | The place where you run setup cannot reach npm. If this is the development container (Option B), run setup from the host instead (Option A); setup does not need the container's network. Otherwise check the host's network, proxy and npm configuration. |
+| `getaddrinfo ENOTFOUND registry.npmjs.org` or another network error | The place where you run setup needs access to npm. If this is the development container (Option B), run setup from the host instead (Option A), which uses the host's network. Otherwise check the host's network, proxy and npm configuration. |
 | `aio: command not found` | Open a new shell so the npm global directory or `$HOME/.local/bin` is on PATH, or reinstall the CLI as described above. Inside a container, reinstall if its home was not persisted. |
-| npm `EACCES` | Install into your user home with `--prefix "$HOME/.local"` as described above. Fix incorrect home/cache ownership; never use `sudo` or run setup as root. |
+| npm `EACCES` | Install into your user home with `--prefix "$HOME/.local"` as described above. Fix incorrect home/cache ownership and run setup as your normal user. |
 | Node.js is missing or below 22 | Install Node.js 22+ where you run setup and recheck `node --version`. For a container, update its image, recreate it and recheck there. |
-| Setup command is unrecognized, or macOS is reported unsupported | Update the plugin with `aio plugins:update`, then check `aio commerce upgrade tools-setup --help`. No separate Commerce CLI plugin is needed. |
+| Setup command is unrecognized, or macOS is reported unsupported | Update the plugin with `aio plugins:update`, then check `aio commerce upgrade tools-setup --help`. The toolkit plugin is the only plugin you need. |
 | npm download returns `403` or `404` | Check registry/package availability. A private package needs authenticated npm access and the appropriate organization/team permissions. Never commit credentials. |
 | `cannot provide the protected file writes setup requires` | The project path contains a symbolic link, or its filesystem does not support the protected writes. Use the real path (`cd -P`), move the project to a local volume, or use the [fallback](#fallback-temporary-linux-container). See the [platform requirements](security-linux-publication.md). |
 | `composer.json` or `bin/magento` is missing | Run from the Commerce project root (the host path for Option A, the container path for Option B), not a parent folder or a database container. |
