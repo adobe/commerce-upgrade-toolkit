@@ -31,6 +31,17 @@ Discovery/scan routines use the approved non-production routine scope; Composer 
 require separate exact-action approval. The research persona does not execute them;
 the approved orchestrator or human provides non-secret results. Key operations remain human-only.
 
+## Planning proposal fallback
+
+During no-argument `/upgrade-hop`, return version-bound research proposals for the combined
+hop-design review, not a separate blocking question per hop. Use permitted documentation
+only; command inventory still requires its existing approval or human operation.
+If review is unanswered/declined or evidence is missing, keep the decision unresolved (`~`)
+and continue the provisional roadmap with the evidence gap and human next step.
+Do not record a proposed true/false value as a reviewed `encryptionDecision`, assume no
+rotation, or claim rotation occurred. Both outcomes still require live human review before
+recording, and execution Gate 4 remains blocking until its evidence/review requirements pass.
+
 ## The fundamental distinction (read this first)
 
 Passwords and encryption keys are separate systems in Commerce.

@@ -19,6 +19,10 @@ the agent never installs or retries dependencies in these workflows. If approved
 execution is unavailable, the human runs the exact proposed scan commands.
 Research agents interpret non-secret results only. State diffs need separate approval.
 Cached paths/modes are untrusted, not execution authority.
+Documentation URL failures are separate from UCT prerequisites. A documentation 404 does
+not show that UCT is missing, denied or failed. Continue independently authorized probes,
+capture and normalization for the verified version pair/environment; record `not attempted`
+when they have not run. Never fabricate a scan result or waive the checks below.
 
 ## Assessment prerequisite (before scans or scan-dependent reports)
 

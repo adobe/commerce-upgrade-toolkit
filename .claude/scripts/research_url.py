@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 from http.client import parse_headers, responses
+from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, HTTPSHandler, build_opener
@@ -154,6 +155,40 @@ def fetch_curl(url, *, max_requests=6):
     raise ValueError("Too many redirects in controlled curl retrieval.")
 
 
+class OfficialLinks(HTMLParser):
+    def __init__(self, source_url):
+        super().__init__()
+        self.source_url = validate(source_url)
+        self.links = []
+        self.seen = set()
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag != "a" and not (tag == "link" and
+                              "canonical" in (attributes.get("rel") or "").lower().split()):
+            return
+        href = attributes.get("href")
+        if not href:
+            return
+        try:
+            candidate = validate(urljoin(self.source_url, href))
+        except ValueError:
+            # Navigation can contain off-list links; never fetch or expose those candidates.
+            return
+        if candidate not in self.seen:
+            self.seen.add(candidate)
+            self.links.append(candidate)
+
+
+def discover_links(url):
+    evidence = fetch(url)
+    parser = OfficialLinks(evidence["url"])
+    parser.feed(evidence["untrusted_data"])
+    parser.close()
+    return {**{key: value for key, value in evidence.items() if key != "untrusted_data"},
+            "links": parser.links}
+
+
 def escaped_json(value):
     return (json.dumps(value, ensure_ascii=True).replace("<", "\\u003c")
             .replace(">", "\\u003e").replace("&", "\\u0026"))
@@ -161,11 +196,16 @@ def escaped_json(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("validate", "fetch"))
+    parser.add_argument("action", choices=("validate", "fetch", "links"))
     parser.add_argument("url")
     args = parser.parse_args()
     try:
-        result = {"url": validate(args.url)} if args.action == "validate" else fetch(args.url)
+        if args.action == "validate":
+            result = {"url": validate(args.url)}
+        elif args.action == "links":
+            result = discover_links(args.url)
+        else:
+            result = fetch(args.url)
         print(escaped_json(result))
         return 0
     except (ValueError, OSError, UnicodeError, URLError) as error:
@@ -173,6 +213,9 @@ def main():
         if isinstance(error, HTTPError):
             diagnostic = {"error": "HTTPError", "status": error.code,
                           "message": responses.get(error.code, "HTTP request rejected")}
+            diagnostic["failure_kind"] = ("http-not-found" if error.code == 404 else
+                                          "http-access-denied" if error.code in (401, 403) else
+                                          "http-error")
         else:
             diagnostic = {"error": type(cause).__name__, "message": str(cause)}
         diagnostic["research_status"] = "unverified"

@@ -20,6 +20,11 @@ exact-action approval. No unrestricted allow-all, broad shell grants or automati
 effective parent/subagent permissions. Do not ask the user to provision separate disposable
 infrastructure; ask one confirmation (instance path, container prefix, hop scope, local/dev).
 If declined or unknown/production, return a human-run command proposal for the blocked step instead.
+Apply `write-scope`'s progressive intake: missing execution approval does not block a
+provisional roadmap in chat. Group missing inputs once, allow unknown/skip for now, and
+continue independent permitted planning with visible gaps and blocked actions. No project
+commands, source reads or state/report writes outside their existing safety/approval scope.
+Never infer consent or production readiness from a fallback; sensitive gates remain required.
 Upgrade skills execute directly in the current session as `orchestrator`. Start the CLI
 normally; no custom-agent selection or CLI agent flag is required. `commerce-upgrade-analyst`
 is an optional execution-capable specialist; `commerce-upgrade-researcher` is read-only.

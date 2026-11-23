@@ -59,7 +59,7 @@ class ToolsSetupCommand extends Command {
         throw new Error('The toolkit requires Node.js 22 or later.')
       }
       if (process.platform !== 'linux') {
-        throw new Error('The toolkit installer requires Linux /proc. Run this command in your Linux development container.')
+        throw new Error('The toolkit installer requires Linux /proc. Run this command in your Linux development container, or use the temporary-container setup in docs/setup-guide.md.')
       }
       await access('/proc/self/fd')
 
