@@ -7,6 +7,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+// Linux uses /proc/self/fd and macOS uses volfs; both back the anchored directory helper.
+const anchored = ['linux', 'darwin'].includes(process.platform);
 function run(binary, args) {
   const result = spawnSync(binary, args, { cwd: root, encoding: 'utf8', timeout: 30000 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -152,8 +154,8 @@ for raw in [b'{"a":1,"a":2}', b'{"a":NaN}']:
   });
 }
 
-for (const platform of ['darwin', 'win32']) {
-  test(`anchored Node operations explicitly reject unimplemented ${platform} support`, () => {
+for (const platform of ['win32', 'freebsd']) {
+  test(`anchored Node operations explicitly reject unsupported ${platform} hosts`, () => {
     run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -164,18 +166,68 @@ const missing = join(fixture, 'missing');
 try {
   Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });
   const { openAnchoredDirectory } = await import('./scripts/lib/anchored-fs.mjs');
-  assert.throws(() => openAnchoredDirectory(missing), /requires Linux procfs/);
+  assert.throws(() => openAnchoredDirectory(missing), /requires Linux procfs or macOS volfs/);
   assert.throws(() => openAnchoredDirectory(missing,
-    { create: true, createRoot: fixture }), /requires Linux procfs/);
+    { create: true, createRoot: fixture }), /requires Linux procfs or macOS volfs/);
   assert.equal(fs.existsSync(missing), false);
 } finally { fs.rmSync(fixture, { recursive: true, force: true }); }
 `]);
   });
 }
 
+test('a held directory keeps writing to the original directory after its path becomes a symlink',
+  { skip: !anchored }, () => {
+    run(process.execPath, ['--input-type=module', '-e', `
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openAnchoredDirectory } from './scripts/lib/anchored-fs.mjs';
+// Resolve the temp directory first: system links such as /var are rejected by design.
+const fixture = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'ccua-held-directory-')));
+try {
+  const project = join(fixture, 'project');
+  const target = join(project, 'context');
+  const outside = join(fixture, 'outside');
+  fs.mkdirSync(target, { recursive: true });
+  fs.mkdirSync(outside);
+  const directory = openAnchoredDirectory(target);
+  try {
+    const { O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW } = fs.constants;
+    fs.closeSync(fs.openSync(directory.entry('before.txt'), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600));
+    fs.renameSync(target, join(project, 'held'));
+    fs.symlinkSync(outside, target, 'dir');
+    fs.closeSync(fs.openSync(directory.entry('after.txt'), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600));
+    fs.renameSync(directory.entry('after.txt'), directory.entry('renamed.txt'));
+    assert.deepEqual(fs.readdirSync(outside), [], 'nothing may reach the symlink target');
+    assert.deepEqual(fs.readdirSync(join(project, 'held')).sort(), ['before.txt', 'renamed.txt']);
+    assert.throws(() => directory.assertAttached(), /Directory changed during anchored operation|unavailable/);
+  } finally { directory.close(); }
+} finally { fs.rmSync(fixture, { recursive: true, force: true }); }
+`]);
+  });
+
+test('anchored open rejects a symbolic link in any parent directory',
+  { skip: !anchored }, () => {
+    run(process.execPath, ['--input-type=module', '-e', `
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openAnchoredDirectory } from './scripts/lib/anchored-fs.mjs';
+const fixture = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'ccua-parent-link-')));
+try {
+  fs.mkdirSync(join(fixture, 'real', 'project'), { recursive: true });
+  fs.symlinkSync(join(fixture, 'real'), join(fixture, 'linked'), 'dir');
+  assert.throws(() => openAnchoredDirectory(join(fixture, 'linked', 'project')));
+  openAnchoredDirectory(join(fixture, 'real', 'project')).close();
+} finally { fs.rmSync(fixture, { recursive: true, force: true }); }
+`]);
+  });
+
 for (const agent of ['claude-code', 'github-copilot']) {
   test(`${agent} marker replacement stays on held directory under a last-moment swap`,
-    { skip: process.platform !== 'linux' }, () => {
+    { skip: !anchored }, () => {
       run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'fs-extra';
@@ -217,7 +269,7 @@ try {
 
 for (const phase of ['config-rename', 'journal-open']) {
   test(`legacy reconciliation ${phase} remains anchored and never rewrites outside files`,
-    { skip: process.platform !== 'linux' }, () => {
+    { skip: !anchored }, () => {
       run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -319,7 +371,7 @@ with tempfile.TemporaryDirectory(prefix="ccua-normal-publication-") as fixture:
 }
 
 test('Linux directory creation requires an existing root and rejects scope escapes',
-  { skip: process.platform !== 'linux' }, () => {
+  { skip: !anchored }, () => {
     run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -350,7 +402,7 @@ try {
 
 for (const agent of ['claude-code', 'github-copilot']) {
   test(`${agent} normal marker publication preserves installation and update behavior`,
-    { skip: process.platform !== 'linux' }, () => {
+    { skip: !anchored }, () => {
       run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -372,7 +424,7 @@ try {
 }
 
 test('Linux legacy cleanup keeps configuration modes and removes successful recovery metadata',
-  { skip: process.platform !== 'linux' }, () => {
+  { skip: !anchored }, () => {
     run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -520,7 +572,7 @@ with tempfile.TemporaryDirectory(prefix="ccua-cleanup-error-") as fixture:
 }
 
 test('Linux recovery keeps the journal lock anchor alive through borrowed reads',
-  { skip: process.platform !== 'linux' }, () => {
+  { skip: !anchored }, () => {
     run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -554,7 +606,7 @@ try {
   });
 
 test('Linux reconciliation cleanup errors retain the primary published-state error first',
-  { skip: process.platform !== 'linux' }, () => {
+  { skip: !anchored }, () => {
     run(process.execPath, ['--input-type=module', '-e', `
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -699,7 +751,7 @@ with tempfile.TemporaryDirectory(prefix="ccua-policy-capture-") as fixture:
   });
 
   for (const phase of ['normal', 'directory-open', 'file-open', 'write', 'leaf-swap', 'short-write', 'no-progress', 'cleanup']) {
-    test(`${prefix} audit ${phase} uses held directories and reports failures`, { skip: process.platform !== 'linux' }, () => {
+    test(`${prefix} audit ${phase} uses held directories and reports failures`, { skip: !anchored }, () => {
       run('python3', ['-B', '-c', `
 import json, os, pathlib, sys, tempfile
 sys.path.insert(0, str(pathlib.Path(${JSON.stringify(prefix)}) / "scripts"))
@@ -713,7 +765,8 @@ with tempfile.TemporaryDirectory(prefix="ccua-audit-anchor-") as fixture:
     sentinel.write_bytes(b"OUTSIDE_SENTINEL")
     original_open, original_write, original_close, original_supports = os.open, os.write, os.close, os.supports_dir_fd
     injected, closed, writes = [False], [], []
-    before_fds = set(os.listdir("/proc/self/fd"))
+    fd_directory = "/proc/self/fd" if os.path.isdir("/proc/self/fd") else "/dev/fd"
+    before_fds = set(os.listdir(fd_directory))
     def swap():
         if not injected[0]:
             os.rename(parent, root / "held")
@@ -767,7 +820,7 @@ with tempfile.TemporaryDirectory(prefix="ccua-audit-anchor-") as fixture:
             assert phase in ("normal", "short-write"), "audit failure accepted"
     finally:
         os.open, os.write, os.close, os.supports_dir_fd = original_open, original_write, original_close, original_supports
-    assert set(os.listdir("/proc/self/fd")) == before_fds, "audit descriptor leaked"
+    assert set(os.listdir(fd_directory)) == before_fds, "audit descriptor leaked"
     assert len(closed) == len(set(closed)) and closed
     assert sentinel.read_bytes() == b"OUTSIDE_SENTINEL"
     assert sorted(p.name for p in outside.iterdir()) == ["audit-log.jsonl"]

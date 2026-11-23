@@ -1,15 +1,36 @@
-# Linux publication boundary
+# Linux and macOS publication boundary
 
-The anchored Node publication helper requires Linux and working `/proc/self/fd`
-directory references. macOS and Windows implementations are deferred. These hosts
-must report an explicit unsupported-host error, not pretend the toolkit is absent
-or fall back to pathname-based publication. This is not a claim of cross-platform
-support. Update release/support documentation before distributing this change.
+The anchored Node publication helper requires either Linux with working `/proc/self/fd`
+directory references, or macOS with working volfs (`/.vol/<device>/<inode>`) references.
+Windows is not supported natively (use WSL, which is Linux). Any other host, or a macOS
+volume where the volfs reference does not resolve, must report an explicit error, not
+pretend the toolkit is absent or fall back to pathname-based publication.
 
-On an existing installation, marker reads/preflight and workspace-config reads
-also use the Linux Node helper. They fail explicitly on unsupported hosts;
-callers must not convert those errors into "not installed." Full macOS/Windows
-support needs a separately reviewed implementation before release.
+On Linux a held directory is addressed through its descriptor. On macOS it is addressed by
+the inode of the directory the descriptor holds. Both keep reaching the original directory
+after its path is replaced by a symlink or moved, which a plain pathname does not. Every
+path component is still opened with no-follow, so a symbolic link anywhere in the project
+path is rejected; this includes macOS system links such as `/var`, `/tmp` and `/etc`.
+
+macOS-specific limits to review:
+
+- volfs is a legacy Apple interface. It is present on current macOS releases but is not
+  documented as stable, so unavailability must continue to fail closed. The helper confirms
+  at each directory that the reference resolves to the same device and inode as the held
+  descriptor before use and again at attachment checks.
+- The reference is inode-based, not descriptor-based. The directory stays referenced while
+  its descriptor is held open; an inode cannot be recycled for another directory during
+  that time.
+- `fsync` on macOS flushes to the drive's cache but is not a full-disk barrier. Durability
+  on power loss is weaker than the Linux guarantee the documentation describes.
+- The same-UID limits below apply unchanged on both platforms.
+- This macOS support has been exercised by this repository's tests but has not had an
+  independent security review. Obtain one before treating it as equivalent to the Linux
+  guarantee.
+
+Marker reads/preflight and workspace-config reads on an existing installation also use this
+helper. They fail explicitly on unsupported hosts; callers must not convert those errors
+into "not installed."
 
 Python normalizer publication requires POSIX no-follow directory opens,
 directory-relative open/stat/rename/unlink and directory fsync support.
