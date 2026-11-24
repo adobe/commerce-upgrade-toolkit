@@ -365,7 +365,7 @@ test('workflows run CI only for PR updates and publish only merged release PRs',
   assert.doesNotMatch(publishEvents, /push:|create:|schedule:|workflow_dispatch:|pull_request_target:/);
   assert.match(publish, /publish:\n    if: github\.event\.pull_request\.merged == true/);
   assert.match(publish, /ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
-  assert.match(publish, /uses: JS-DevTools\/npm-publish@v1/);
+  assert.match(publish, /uses: JS-DevTools\/npm-publish@v4/);
 });
 
 test('CI workflow defines a least-privilege test and security job that cannot soft-fail', () => {

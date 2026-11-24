@@ -94,7 +94,15 @@ detection` section, which persist `editionType` and its companion `metapackageVe
 
 ## Deterministic normalization before TOON or tools
 
-The schema example above is the repository's supported fixture. Keep the raw report untouched.
+The schema example above is the repository's supported fixture. UCT 3.x writes
+`{"issues": [...], "stats": {...}}` instead (issue fields `fileName`, `lineNumber`, `level`,
+`code`, `message`, `validationType`). The normalizer accepts only UCT 3.x `php` issues whose integer code
+and exact message match a single-symbol class/interface/constant/method/property template from UCT's own
+catalogue (`UCT3_TEMPLATES`); absolute `fileName` values must sit inside the project root. `CRITICAL` and
+`ERROR` map to `error`, `WARNING` to `warning`. Everything else (DB schema, core-file, PHPCompatibility
+and multi-symbol codes, unknown fields, out-of-root paths) is quarantined as a human-review blocker.
+On a git-checkout project, scan with `--ignore-current-version-compatibility-issues` so baseline noise
+from a branch newer than the release is not counted as findings. Keep the raw report untouched.
 The approved orchestrator passes the validated resolved target, including on cached scans:
 
 ```bash
