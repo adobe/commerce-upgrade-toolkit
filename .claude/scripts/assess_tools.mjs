@@ -19,6 +19,7 @@ SPDX-License-Identifier: Apache-2.0
 //   node assess_tools.mjs diff-uct <baseline.json> <target.json>
 //   node assess_tools.mjs rollup   <upgrade-assessment.json>
 //   node assess_tools.mjs validate <upgrade-assessment.json>
+//   node assess_tools.mjs uct-prerequisite <live-probe-results.json>
 //   node assess_tools.mjs patches <projectDir> --target <X.Y.Z>
 //   node assess_tools.mjs custom-modules <projectDir>
 //   node assess_tools.mjs third-party <projectDir> [--php 8.5.0] [--assessment <upgrade-assessment.json>]
@@ -50,8 +51,15 @@ export function readJson(path) {
 }
 
 function findingKey(f) {
-  // Line numbers shift between versions of the same file, so they are not part of identity.
-  return [f.code, f.type, f.file, f.message].join('\u0000')
+  if (!f || typeof f !== 'object' || Array.isArray(f) ||
+      typeof f.code !== 'string' || !/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/.test(f.code) ||
+      typeof f.file !== 'string' || !/^(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(f.file) ||
+      f.file.split('/').some(part => part === '.' || part === '..') ||
+      typeof f.symbol !== 'string' ||
+      !/^[A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][A-Za-z0-9_]*)+(?:::[A-Za-z_][A-Za-z0-9_]*)?$/.test(f.symbol)) {
+    throw new Error('findings require normalized code, project-relative file and strict symbol')
+  }
+  return JSON.stringify([f.code, f.file, f.symbol])
 }
 
 export function diffUct(baseline, target) {
@@ -111,6 +119,39 @@ export function isSensitivePath(file) {
   return typeof file === 'string' && SENSITIVE_PATH.test(file)
 }
 
+export function uctPrerequisite({ inProjectExitCode = null, composerExitCode = null,
+  standaloneExitCode = null, probeFailure = 'missing',
+  installationOutcome = 'not-attempted', continueIncomplete = false } = {}) {
+  for (const code of [inProjectExitCode, composerExitCode, standaloneExitCode]) {
+    if (code !== null && (!Number.isInteger(code) || code < 0 || code > 255)) {
+      throw new Error('UCT probe exit codes must be null or integers from 0 to 255')
+    }
+  }
+  if (!['not-attempted', 'completed', 'declined', 'failed'].includes(installationOutcome) ||
+      !['missing', 'execution-failed'].includes(probeFailure) ||
+      typeof continueIncomplete !== 'boolean') {
+    throw new Error('invalid UCT installation outcome or incomplete-report decision')
+  }
+  const mode = inProjectExitCode === 0 ? 'in-project'
+    : composerExitCode === 0 ? 'composer'
+    : standaloneExitCode === 0 ? 'standalone-fallback' : null
+  if (mode) {
+    return { status: 'available', mode, scanAllowed: true, incompleteReportAllowed: false,
+      reason: 'UCT prerequisite verified; scan and normalization results are still required' }
+  }
+  const status = probeFailure === 'execution-failed' ? 'execution-failed'
+    : installationOutcome === 'declined' ? 'declined'
+    : ['failed', 'completed'].includes(installationOutcome) ? 'failed' : 'missing'
+  const reasons = {
+    missing: 'No working UCT verified; offer the human-run installation procedure',
+    'execution-failed': 'UCT verification could not execute successfully; repair the PHP/environment/access failure before retrying, not an assumed missing installation',
+    declined: 'Human-run UCT installation declined; UCT compatibility is Not assessed',
+    failed: 'Human-run UCT installation or post-install verification failed; UCT compatibility is Not assessed'
+  }
+  return { status, mode: null, scanAllowed: false,
+    incompleteReportAllowed: continueIncomplete, reason: reasons[status] }
+}
+
 export function rollup(data) {
   const counts = { small: 0, medium: 0, high: 0, unknown: 0 }
   const rows = [
@@ -146,6 +187,32 @@ export function validate(data) {
   }
   for (const name of SECTIONS) {
     if (data.sections && data.sections[name] === undefined) errors.push(`missing sections.${name}`)
+  }
+  const commerce = data.sections?.commerceCompatibility
+  if (commerce?.status !== undefined) {
+    if (!['assessed', 'not-assessed'].includes(commerce.status)) {
+      errors.push('commerceCompatibility.status must be assessed or not-assessed')
+    } else if (commerce.status === 'not-assessed') {
+      if (typeof commerce.reason !== 'string' || !commerce.reason.trim()) {
+        errors.push('commerceCompatibility.reason is required when UCT is Not assessed')
+      }
+      if (commerce.baselineRun !== null || commerce.targetRun !== null ||
+          commerce.quarantineCount !== null || !Array.isArray(commerce.differentialRows) ||
+          commerce.differentialRows.length !== 0 || !Array.isArray(commerce.debtCategories) ||
+          commerce.debtCategories.length !== 0) {
+        errors.push('Not assessed UCT must have null run/count evidence and no differential findings')
+      }
+      if (!Array.isArray(data.gaps) || data.gaps.length === 0) {
+        errors.push('UCT is Not assessed but gaps is empty')
+      }
+    } else if (typeof commerce.baselineRun !== 'string' || !commerce.baselineRun.trim() ||
+               typeof commerce.targetRun !== 'string' || !commerce.targetRun.trim() ||
+               !Number.isInteger(commerce.quarantineCount) || commerce.quarantineCount < 0 ||
+               !Array.isArray(commerce.differentialRows)) {
+      errors.push('Assessed UCT requires both run references, differential rows and a verified quarantine count')
+    } else if (commerce.quarantineCount > 0 && (!Array.isArray(data.gaps) || data.gaps.length === 0)) {
+      errors.push('UCT quarantine blockers require gaps')
+    }
   }
   const rowChecks = [
     ['thirdParty', 'decision', MODULE_DECISIONS],
@@ -570,6 +637,8 @@ function main(argv) {
       const errors = validate(readJson(args[0]))
       console.log(escaped({ valid: errors.length === 0, errors }))
       return errors.length ? 1 : 0
+    } else if (cmd === 'uct-prerequisite' && args.length === 1) {
+      console.log(escaped(uctPrerequisite(readJson(args[0]))))
     } else if (cmd === 'patches' && args.length >= 1) {
       const i = args.indexOf('--target')
       const target = i > 0 ? args[i + 1] : undefined
@@ -585,7 +654,7 @@ function main(argv) {
       const packages = assessmentPath ? readJson(assessmentPath).sections.thirdParty.rows.map((r) => r.package) : null
       console.log(escaped(thirdPartyEvidence(args[0], { php: phpOpt, packages })))
     } else {
-      console.error('usage: assess_tools.mjs diff-uct <baseline> <target> | rollup <file> | validate <file> | patches <projectDir> --target X.Y.Z | custom-modules <projectDir> | third-party <projectDir> [--php X.Y.Z] [--assessment <file>]')
+      console.error('usage: assess_tools.mjs diff-uct <baseline> <target> | rollup <file> | validate <file> | uct-prerequisite <live-probes.json> | patches <projectDir> --target X.Y.Z | custom-modules <projectDir> | third-party <projectDir> [--php X.Y.Z] [--assessment <file>]')
       return 2
     }
     return 0

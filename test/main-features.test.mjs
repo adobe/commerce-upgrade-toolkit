@@ -138,6 +138,22 @@ test('updater has no automatic hook merge or obsolete provisioning helper', () =
   assert.equal(existsSync(join(root, 'scripts/lib/merge-settings.mjs')), false)
 })
 
+test('container setup runner exposes tools-setup when the user has no passwd entry', () => {
+  const dir = mkdtempSync(join(root, '.ccua-functional-test-'))
+  try {
+    const preload = join(dir, 'no-passwd.cjs')
+    writeFileSync(preload, "require('node:os').userInfo = () => { throw new Error('no passwd entry') }\n")
+    const env = { PATH: process.env.PATH, HOME: dir }
+    const result = spawnSync(process.execPath, ['--require', preload,
+      join(root, 'scripts/run-tools-setup.js'), '--help'], { env, encoding: 'utf8', timeout: 30000 })
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`)
+    assert.match(result.stdout, /--agent/)
+    assert.match(result.stdout, /--tools-version/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 for (const [, agentDir] of flavours) {
   test(`${agentDir} version notice checks the official package and recommends npm-backed setup`, () => fixture(({ project, env }) => {
     mkdirSync(join(project, agentDir, 'context'), { recursive: true })

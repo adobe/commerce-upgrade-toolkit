@@ -2,131 +2,217 @@
 
 AI-guided, developer-approved upgrades for Adobe Commerce on cloud infrastructure (PaaS).
 
-Use GitHub Copilot or Claude Code to plan upgrade hops, analyze compatibility, review fixes, and prepare deployment. This toolkit is for PaaS upgrades, not Adobe Commerce as a Cloud Service (SaaS) extension development.
+Use GitHub Copilot or Claude Code to plan upgrade hops, assess compatibility, review fixes,
+and prepare deployment. This toolkit is for version upgrades, not Adobe Commerce as a Cloud
+Service (SaaS) extension development.
 
 ## Prerequisites
 
 | Requirement | Details |
 | --- | --- |
-| Node.js and npm | Node.js 22 or later for the toolkit CLI plugin. |
-| Adobe I/O CLI | `aio` with `@adobe/commerce-upgrade-toolkit` version 1.0.1 or later installed as a plugin. |
-| Commerce project | A local or development checkout of an installed Adobe Commerce PaaS project with `composer.json` and `bin/magento`. |
+| Development environment | Node.js 22+ and npm, either on your host (macOS, Linux, or Windows through WSL) or inside the project's Linux development container. Setup on the host keeps your Commerce container as it is. Magento, Composer and UCT commands run in your project's existing development environment (Warden, Cloud Docker, Markshust, another Docker setup, or a plain Linux shell), which the agent detects. Windows runs through WSL. |
+| Commerce project | An existing local/development checkout with `composer.json` and `bin/magento`, writable by the normal development user. If you run setup on the host (Option A), its path must not contain symbolic links. |
 | Coding agent | [GitHub Copilot](https://github.com/features/copilot) or [Claude Code](https://claude.com/claude-code), installed and authenticated. |
-| Linux development environment | Linux with `/proc`, using Warden, Cloud Docker, Markshust Docker Magento, or bare-metal. On macOS or Windows, run setup in a Linux development container; native setup is not supported. |
+| Documentation research | Python 3 with a trusted CA store and curl, available where the coding agent runs research. |
+| Compatibility assessment | Working Upgrade Compatibility Tool (UCT), successful required scans and supported normalization. Toolkit installation and planning-only roadmaps work without UCT. |
 
-Use a local or development environment only, without production access or production credentials.
+Use a local/development environment without production access or credentials. Run setup
+as your normal user.
 
 ## Installation
 
-The setup command is provided by this toolkit plugin in version 1.0.1 or later.
-No separate Commerce CLI plugin is required.
+The toolkit plugin provides `aio commerce upgrade tools-setup`; it is the only plugin you
+need.
 
-### 1. Install
+Choose where to run setup. Both options give the same result: setup only downloads the
+toolkit from npm and copies its workflow files into your project folder. Use **Option A**
+(the host) if you work on macOS or your development container cannot reach npm; use
+**Option B** if you prefer to work inside the container. See the
+[setup guide](docs/setup-guide.md) for where each part runs.
 
-If `aio` is not installed:
+### Option A: From your host terminal (macOS, Linux or WSL)
+
+Run these in your host terminal. Your Commerce container stays as it is.
+
+**1. Check Node.js**
 
 ```bash
-npm install -g @adobe/aio-cli
+node --version
+npm --version
 ```
 
-Install the toolkit plugin:
+Confirm Node.js 22+ before continuing.
+
+**2. Install Adobe I/O CLI**
+
+```bash
+npm install --global @adobe/aio-cli
+aio --version
+```
+
+If `aio` is already installed, skip the install and verify it with `aio --version`. If the
+install fails with `EACCES`, use the user-home install in Option B step 2 instead of `sudo`.
+
+**3. Install the toolkit plugin**
 
 ```bash
 aio plugins:install @adobe/commerce-upgrade-toolkit
+aio commerce upgrade tools-setup --help
 ```
 
-### 2. Set up your Commerce project
+If the plugin is already installed, run `aio plugins:update` to get the latest version
+first. Plugin versions before 1.0.9 refuse macOS hosts.
+
+**4. Set up the Commerce project**
 
 ```bash
 cd /path/to/commerce/project
+ls composer.json bin/magento
 aio commerce upgrade tools-setup
 ```
 
-Choose **Claude Code** or **GitHub Copilot** when prompted. Setup downloads the latest toolkit from npm, installs the selected workflows, and verifies the installed version and file integrity. Your project's npm dependencies and lock file are unchanged.
+Use the project's path on your host, which must not contain symbolic links. Choose
+**GitHub Copilot** or **Claude Code** when prompted.
 
-| Agent | Files installed |
+### Option B: Inside the Linux development container
+
+Start your project's development environment, then enter its Linux shell from the host
+terminal with your environment's documented command (see the
+[setup guide](docs/setup-guide.md#development-shell-commands-for-human-run-steps)).
+Run the following **inside that shell**:
+
+**1. Check the shell and Node.js**
+
+```bash
+uname -s
+node --version
+npm --version
+```
+
+Confirm `Linux` and Node.js 22+. The container must be able to reach the npm registry.
+
+**2. Install Adobe I/O CLI into your user's home**
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+npm install --global --prefix "$HOME/.local" @adobe/aio-cli
+aio --version
+```
+
+Persist the PATH line in the user's shell startup file. If `aio` is already installed for
+this user, skip installation. No `sudo` is needed.
+
+**3. Install the toolkit plugin**
+
+```bash
+aio plugins:install @adobe/commerce-upgrade-toolkit
+aio commerce upgrade tools-setup --help
+```
+
+**4. Set up the Commerce project**
+
+```bash
+cd /path/to/commerce/project/in/container
+ls composer.json bin/magento
+aio commerce upgrade tools-setup
+```
+
+Use the container's path, not a host path such as `/Users/...`. Choose **GitHub Copilot** or
+**Claude Code** when prompted. The `aio` home directory often is not persisted across
+container rebuilds, so expect to repeat steps 2 and 3 after one.
+
+### What setup does
+
+Setup downloads the toolkit from npm, installs the selected workflows, and verifies their
+installed version and integrity. Your project's npm dependencies and lock file stay as they
+are, and UCT is set up separately when you need it.
+
+| Agent | Installed files |
 | --- | --- |
-| GitHub Copilot | `.github/` instructions, agents, skills, and helper files |
-| Claude Code | `.claude/` workflows and helper files, plus `CLAUDE.md` |
+| GitHub Copilot | `.github/` instructions, agents, skills and helpers |
+| Claude Code | `.claude/` workflows and helpers, plus `CLAUDE.md` |
 
-### 3. Start your upgrade
+Continue only after setup reports completion. If it fails, see the
+[setup guide](docs/setup-guide.md#troubleshooting).
 
-Open the Commerce project in your coding agent, restart or reload its session, and run:
+### Open the project in your coding agent
+
+Open the Commerce project and restart or reload the agent session. The agent can run on the
+host as long as the installed files are visible in the same checkout. It detects your
+environment (Warden, Cloud Docker, Markshust, another Docker setup, or a plain Linux shell)
+and runs `bin/magento`, Composer and UCT commands inside your existing container, for
+example through `warden shell --`.
+
+In **agent chat, not the terminal**, run:
 
 ```text
 /upgrade-hop
 ```
 
-### Optional setup flags
+This generates a planning-only roadmap. See the commands below for compatibility analysis
+and approved execution.
 
-```bash
-aio commerce upgrade tools-setup --agent "GitHub Copilot"
-```
+## Basic usage
 
-| Flag | Purpose |
-| --- | --- |
-| `--agent`, `-a` | `GitHub Copilot` or `Claude Code`; prompts if omitted. |
-| `--project`, `-p` | Existing Commerce project; defaults to the working directory. |
-| `--tools-version`, `-v` | Exact toolkit version or npm tag; defaults to `latest`. |
-
-## Updating
-
-From the same Commerce project, rerun setup and select the same agent:
-
-```bash
-aio commerce upgrade tools-setup
-```
-
-Setup preserves project-owned instructions and state, reports changes to managed files, and rejects downgrades. Restart your coding agent afterward.
-To update the CLI plugin itself, run `aio plugins:update`.
-
-## Upgrade workflows
-
-Run these commands in your coding agent, not in the terminal:
+Replace `<version>` with the target version you have reviewed. These commands are choices
+for different tasks, not a script to paste as a mandatory sequence.
 
 | Command | Purpose |
 | --- | --- |
-| `/upgrade-hop` | Detect the environment and versions, then generate the multi-hop roadmap. |
-| `/upgrade-hop <version>` | Analyze compatibility and blockers for one upgrade hop. |
-| `/upgrade-hop-execute <version>` | Execute approved changes for that hop, with validation. |
-| `/upgrade-deploy-prep` | Generate deployment-readiness checks and a human-operated runbook. |
-| `/upgrade-assess <version>` | Generate a read-only assessment with complexity ratings and HTML/Markdown reports. |
+| `/upgrade-hop` | Discover the environment and plan the multi-hop roadmap; no UCT scan required. |
+| `/upgrade-assess <version>` | Produce a read-only compatibility assessment with HTML/Markdown reports. |
+| `/upgrade-hop <version>` | Analyze compatibility and blockers for the next approved hop. |
+| `/upgrade-hop-execute <version>` | Apply approved changes for one hop, with validation and safety gates. |
+| `/upgrade-deploy-prep` | Produce deployment-readiness checks and a human-operated runbook; does not deploy. |
 
-Complete and validate each approved hop separately. See the [workflow guide](docs/upgrade-workflow.md) for details.
+Complete and validate each approved hop separately. The current agent session runs approved
+scans and normalization; the documentation agent composes reports. See the
+[workflow guide](docs/upgrade-workflow.md) for details.
 
-## Safe use and limitations
+## UCT assessment requirement
 
-- Approve the environment, plan, and exact changes before applying fixes.
-- Back up the database and `app/etc/env.php`, including the encryption key, before every hop.
-- Core and `vendor/` modifications are flagged, not applied. Frontend analysis produces a review checklist rather than automatically changing theme assets.
-- Production deployment, infrastructure changes, and encryption-key operations require human control.
-- AI recommendations and generated reports do not guarantee compatibility or production readiness. Complete project-specific validation and release approval.
+**A complete compatibility assessment requires working UCT, successful required captures,
+and supported normalization.** `/upgrade-assess` requires both baseline and target scans.
+A successful installation or version probe alone does not complete an assessment.
 
-Reports are generated as local files in your Commerce project, not hosted by this repository. Assessment PDF/DOCX conversion is human-operated.
+The shared prerequisite checks Magento, Composer and reviewed standalone executables before
+offering setup. Installation and dependency repair are human-run outside the assessment;
+the agent re-probes afterward. Missing tools, execution failures and unsupported normalization
+require different recovery actions, not automatic reinstallation.
 
-Read the [security and existing-install guidance](docs/security-migration.md) before using the toolkit or resuming an older installation.
+If UCT evidence is unavailable, explicitly choose **manual setup**, **continue incomplete**,
+or **stop**. An incomplete report shows **UCT: Not assessed**, the reason and follow-up.
+Unavailable counts remain null, not zero. Quarantined records remain visible human-review
+blockers; a roadmap or incomplete report never authorizes remediation.
 
-## Troubleshooting
+## Safety and limitations
 
-| Symptom | What to do |
-| --- | --- |
-| `aio: command not found` | Install the Adobe I/O CLI and verify that it is on your PATH. |
-| `commerce upgrade tools-setup` is not recognized | Install or update the toolkit plugin to version 1.0.1 or later. Version 1.0.0 does not include this command. |
-| Setup requires Linux `/proc` | Run setup in a Linux development container or host. See the [platform limitation](docs/security-linux-publication.md). |
-| PHP or UCT checks are not assessed | Install the required project tools in your development environment, then rerun the checks. The toolkit does not install Commerce analysis dependencies automatically. |
-| An older installation cannot be updated | Back up project-owned files and follow the [existing-install guidance](docs/security-migration.md). |
+- Approve the environment, hop plan and exact changes before applying fixes.
+- Back up the database and `app/etc/env.php`, including the encryption key, before each hop.
+- Core/vendor changes are flagged, not applied. Frontend analysis produces a review checklist.
+- Production deployment, infrastructure changes and encryption-key operations remain human-controlled.
+- Reports and successful scans are not proof of compatibility or production readiness.
 
-## Documentation and feedback
+Reports are self-contained local files in your Commerce project. Assessment PDF/DOCX
+conversion is human-operated. Read the [security guidance](docs/security-migration.md)
+before using the toolkit or resuming a preserved installation.
 
-- [Workflow and reports](docs/upgrade-workflow.md)
-- [Security guidance](docs/security-migration.md)
-- [Commerce upgrade guide on Experience League](https://experienceleague.adobe.com/en/docs/commerce-operations/upgrade-guide/overview)
-- [Report an installation or upgrade-workflow issue](https://github.com/adobe/commerce-upgrade-toolkit/issues)
+## Documentation and support
 
-Do not include customer code, credentials, personal data, or other confidential material in public issues. Report suspected vulnerabilities through [Adobe's security reporting channel](https://helpx.adobe.com/security/alertus.html), not public GitHub issues.
+- [Detailed setup, updates and troubleshooting](docs/setup-guide.md)
+- [Upgrade workflows and reports](docs/upgrade-workflow.md)
+- [Commerce upgrade guide](https://experienceleague.adobe.com/en/docs/commerce-operations/upgrade-guide/overview)
+- [Report an issue](https://github.com/adobe/commerce-upgrade-toolkit/issues)
+
+Do not include customer code, credentials, personal data or confidential material in public
+issues. Report suspected vulnerabilities through
+[Adobe's security reporting channel](https://helpx.adobe.com/security/alertus.html).
 
 ## License
 
-Copyright 2026 Adobe. Licensed under [Apache-2.0](LICENSE); see [COPYRIGHT](COPYRIGHT). Third-party components retain their own licenses and notices. Previously distributed MIT-licensed versions retain their original license rights.
+Copyright 2026 Adobe. Licensed under [Apache-2.0](LICENSE); see [COPYRIGHT](COPYRIGHT).
+Third-party components retain their own licenses and notices. Previously distributed
+MIT-licensed versions retain their original license rights.
 
-The toolkit license does not cover Adobe Commerce or external AI services, or establish hosted-service terms or support commitments.
+The toolkit license does not cover Adobe Commerce or external AI services, or establish
+hosted-service terms or support commitments.

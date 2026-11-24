@@ -15,6 +15,19 @@ Callers: `/upgrade-hop`, `/upgrade-hop-execute`, `commerce-installation` skill, 
 was extracted from — out of scope here per CLAUDE.md's own scope section — so it's correctly
 absent as a command in this toolkit, just no longer listed as a caller.)
 
+## Planning fallback
+
+When called by no-argument `/upgrade-hop`, discovery is optional for a provisional roadmap.
+Without live routine approval, do not probe Docker, run project tools or inspect an
+unreviewed checkout; return supplied non-secret facts labelled provisional and unknown
+runtime fields with `status: incomplete`.
+Within approved discovery, empty/unavailable Docker, ambiguous app containers or unresolved
+project roots must not select guessed host execution or invoke bootstrap routing. Collect
+the unresolved choices once in the intake; if unanswered, return incomplete evidence and
+human-run verification guidance so planning can continue. Never inspect credential files.
+For analysis/execution, unresolved identity still blocks project commands; this fallback
+cannot mark detection complete or authorize a guessed container/root.
+
 ---
 
 ## Step 1 — Single-pass container detection

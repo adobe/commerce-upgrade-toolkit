@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -140,6 +140,19 @@ for (const [label, change, message] of [
     assert.equal(existsSync(join(project, '.github')), false)
   }))
 }
+
+test('a project path containing a symbolic link is rejected before any file is written',
+  { skip: !['linux', 'darwin'].includes(process.platform) }, () => fixture(({ project, env }) => {
+    const link = join(project, '..', 'linked project')
+    symlinkSync(project, link, 'dir')
+    const result = cli(project, env, ['--agent', 'GitHub Copilot', '--project', link])
+    assert.equal(result.status, 1, result.stderr + result.stdout)
+    assert.match(result.stderr, /host support check/)
+    assert.match(result.stderr, /contains a symbolic link/)
+    assert.match(result.stderr, /setup-guide\.md/)
+    assert.equal(existsSync(join(project, '.github')), false)
+    assert.equal(existsSync(join(project, '.claude')), false)
+  }))
 
 test('npm failure is reported and the temporary download is cleaned up', () => fixture(({ project, env }) => {
   const result = cli(project, { ...env, CCUA_FAIL_DOWNLOAD: '1' }, ['--agent', 'GitHub Copilot'])

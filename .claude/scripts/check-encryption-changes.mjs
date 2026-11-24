@@ -459,7 +459,7 @@ function readWorkingFile(repoRoot, path) {
     directory.assertAttached();
     return buffer.subarray(0, length).toString('utf8');
   } catch {
-    throw new FailClosedError('Unable to safely read source. Linux procfs and stable regular, single-link paths are required.');
+    throw new FailClosedError('Unable to safely read source. Linux procfs or macOS volfs, and stable regular, single-link paths are required.');
   } finally {
     try { if (descriptor !== undefined) closeSync(descriptor); } finally {
       if (directory) directory.close();

@@ -20,6 +20,11 @@ exact-action approval. No unrestricted allow-all, broad shell grants or automati
 effective parent/subagent permissions. Do not ask the user to provision separate disposable
 infrastructure; ask one confirmation (instance path, container prefix, hop scope, local/dev).
 If declined or unknown/production, return a human-run command proposal for the blocked step instead.
+Apply `write-scope`'s progressive intake: missing execution approval does not block a
+provisional roadmap in chat. Group missing inputs once, allow unknown/skip for now, and
+continue independent permitted planning with visible gaps and blocked actions. No project
+commands, source reads or state/report writes outside their existing safety/approval scope.
+Never infer consent or production readiness from a fallback; sensitive gates remain required.
 Upgrade skills execute directly in the current session as `orchestrator`. Start the CLI
 normally; no custom-agent selection or CLI agent flag is required. `commerce-upgrade-analyst`
 is an optional execution-capable specialist; `commerce-upgrade-researcher` is read-only.
@@ -163,6 +168,7 @@ ask. Read and apply the matching skill when the task fits.
 | Upgrade hop: fix sequencing, tier order | `remediation-order` |
 | Upgrade hop: extension compatibility matrix | `marketplace-extension-analysis` |
 | Upgrade hop: HTML report (pre/post) | `upgrade-hop-report` |
+| Any report: identity, evidence labels and print/Markdown presentation | `report-branding` |
 | Multi-hop data migration script | `data-migration-plan` |
 | Encryption key rotation, password hash migration | `encryption-and-passwords` |
 | Frontend template/layout override analysis | `frontend-upgrade-analysis` |
@@ -249,8 +255,14 @@ After every slash command completes its final step, always ask:
 
 > "Would you like an interactive HTML report of this output? (yes / no)"
 
-**If yes:** dispatch the `commerce-documentation-engineer` agent to generate the report —
-do not build the HTML in the top-level session. The agent:
+**If yes:** dispatch the `commerce-documentation-engineer` agent to compose the report.
+Apply `.claude/skills/report-branding.md` to every report and exported twin: shared toolkit
+identity, inline styling and visible evidence status/blockers. Do not import corporate assets
+or hide incomplete checks; presentation does not change approval or readiness.
+Include the **Document report persistence handoff** from `write-scope`: if child writes
+are unavailable, the parent may persist only the exact reviewed proposal with its own
+approved native file-edit tool. Do not independently author the report or widen permissions.
+Read back and verify the saved file before reporting success. The agent:
 1. Generates a self-contained `index.html` — all CSS and JS embedded inline (no external CDN
    dependencies)
 2. Saves to `output/html/<command-name>-<YYYY-MM-DD>/index.html` relative to the project root

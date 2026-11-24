@@ -17,53 +17,65 @@ SPDX-License-Identifier: Apache-2.0
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Commerce Upgrade Roadmap — {{FROM_VERSION}} → {{TO_VERSION}}</title>
 <style>
+  :root {
+    --brand-accent: #eb1000;
+    --report-ink: #181818;
+    --report-muted: #505050;
+    --report-surface: #ffffff;
+    --report-background: #f5f5f5;
+    --report-border: #d5d5d5;
+    --report-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #1a1a2e; background: #f4f6f9; }
-  a { color: #e04e39; text-decoration: none; }
+  body { font-family: var(--report-font); font-size: 14px; color: var(--report-ink); background: var(--report-background); }
+  a { color: #b91c1c; text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 3px; }
 
   /* Layout */
   .layout { display: flex; min-height: 100vh; }
-  .sidebar { width: 220px; background: #1a1a2e; color: #cdd0d4; padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
-  .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid #2e3150; margin-bottom: 16px; }
-  .sidebar-logo .brand { font-size: 13px; font-weight: 700; color: #e04e39; letter-spacing: .5px; text-transform: uppercase; }
-  .sidebar-logo .sub { font-size: 11px; color: #7a7d99; margin-top: 2px; }
-  .sidebar nav a { display: block; padding: 8px 20px; font-size: 13px; color: #9da0bb; border-left: 3px solid transparent; transition: all .15s; }
-  .sidebar nav a:hover, .sidebar nav a.active { color: #fff; background: rgba(224,78,57,.1); border-left-color: #e04e39; }
+  .sidebar { width: 220px; background: var(--report-ink); color: #fff; padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-logo { padding: 0 20px 20px; border-bottom: 3px solid var(--brand-accent); margin-bottom: 16px; }
+  .sidebar-logo .brand { font-size: 14px; font-weight: 700; color: #fff; }
+  .sidebar-logo .sub { font-size: 12px; color: #d5d5d5; margin-top: 2px; }
+  .sidebar nav a { display: block; padding: 8px 20px; font-size: 14px; color: #d5d5d5; border-left: 3px solid transparent; transition: all .15s; }
+  .sidebar nav a:hover, .sidebar nav a.active { color: #fff; background: #303030; border-left-color: var(--brand-accent); }
   .main { flex: 1; padding: 32px 40px; max-width: 1100px; }
 
   /* Header */
-  .report-header { background: #fff; border-radius: 10px; padding: 28px 32px; margin-bottom: 24px; border: 1px solid #e2e5ec; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-  .report-header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-  .report-header .meta { font-size: 12px; color: #6b7280; margin-top: 6px; }
+  .report-header { background: var(--report-surface); border-radius: 10px; padding: 28px 32px; margin-bottom: 24px; border: 1px solid var(--report-border); border-top: 4px solid var(--brand-accent); display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .report-header h1 { font-size: 22px; font-weight: 700; color: var(--report-ink); }
+  .report-header .meta { font-size: 14px; color: var(--report-muted); margin-top: 6px; }
+  .report-status { margin-top: 12px; font-weight: 600; color: var(--report-muted); }
   .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-  .badge-tier-minimal { background: #d1fae5; color: #065f46; }
-  .badge-tier-low    { background: #d1fae5; color: #065f46; }
+  .badge-tier-minimal { background: #dcfce7; color: #166534; }
+  .badge-tier-low    { background: #dcfce7; color: #166534; }
   .badge-tier-medium { background: #fef3c7; color: #92400e; }
-  .badge-tier-high   { background: #fee2e2; color: #991b1b; }
+  .badge-tier-high   { background: #fee2e2; color: #b91c1c; }
   .badge-tier-veryhigh { background: #f3e8ff; color: #6b21a8; }
-  .badge-default     { background: #e0e7ff; color: #3730a3; }
+  .badge-default     { background: #dbeafe; color: #1d4ed8; }
 
   /* Section cards */
-  .section { background: #fff; border-radius: 10px; border: 1px solid #e2e5ec; margin-bottom: 24px; overflow: hidden; }
+  .section { background: var(--report-surface); border-radius: 10px; border: 1px solid var(--report-border); margin-bottom: 24px; overflow: hidden; }
   .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #f0f2f7; cursor: pointer; user-select: none; }
-  .section-header h2 { font-size: 15px; font-weight: 600; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+  .section-header h2 { font-size: 15px; font-weight: 600; color: var(--report-ink); display: flex; align-items: center; gap: 10px; }
   .section-header .icon { font-size: 18px; }
   .section-body { padding: 20px 24px; }
   .section-body.collapsed { display: none; }
-  .toggle-btn { background: none; border: none; color: #9ca3af; font-size: 18px; cursor: pointer; line-height: 1; }
+  .toggle-btn { background: none; border: none; color: var(--report-muted); font-size: 18px; cursor: pointer; line-height: 1; }
 
   /* Tables */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 10px 12px; background: #f8f9fb; color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid #e2e5ec; }
-  td { padding: 10px 12px; border-bottom: 1px solid #f0f2f7; color: #374151; vertical-align: top; }
+  th { text-align: left; padding: 10px 12px; background: var(--report-background); color: var(--report-muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--report-border); }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f2f7; color: var(--report-ink); vertical-align: top; }
+  td, th, code { overflow-wrap: anywhere; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #fafbfd; }
 
   /* Tier badges in table */
   .tier { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-  .tier-Minimal, .tier-Low { background: #d1fae5; color: #065f46; }
+  .tier-Minimal, .tier-Low { background: #dcfce7; color: #166534; }
   .tier-Medium { background: #fef3c7; color: #92400e; }
-  .tier-High   { background: #fee2e2; color: #991b1b; }
+  .tier-High   { background: #fee2e2; color: #b91c1c; }
   .tier-Very-High { background: #f3e8ff; color: #6b21a8; }
 
   /* Hop progress */
@@ -73,12 +85,35 @@ SPDX-License-Identifier: Apache-2.0
   .hop-item.analysed  { background: #fffaf0; border-color: #fed7aa; }
   .hop-item.planned   { background: #f8f9fb; }
   .hop-item .status-icon { font-size: 16px; flex-shrink: 0; }
-  .hop-item .hop-label { font-weight: 600; color: #1a1a2e; }
-  .hop-item .hop-desc { color: #6b7280; font-size: 12px; margin-top: 1px; }
+  .hop-item .hop-label { font-weight: 600; color: var(--report-ink); }
+  .hop-item .hop-desc { color: var(--report-muted); font-size: 13px; margin-top: 1px; }
   .hop-item .hop-link { font-size: 12px; font-weight: 600; }
 
   /* Footer */
-  .report-footer { text-align: center; font-size: 11px; color: #9ca3af; padding: 24px 0; border-top: 1px solid #e2e5ec; margin-top: 8px; }
+  .report-footer { text-align: center; font-size: 13px; color: var(--report-muted); padding: 24px 0; border-top: 1px solid var(--report-border); margin-top: 8px; }
+  .report-limitation { margin-top: 8px; }
+
+  @media (max-width: 800px) {
+    .layout { display: block; }
+    .sidebar { position: static; width: auto; height: auto; }
+    .main { padding: 20px; }
+    .report-header { flex-direction: column; padding: 20px; }
+  }
+
+  @page { size: A4; margin: 14mm; }
+  @media print {
+    body { background: #fff; color: #181818; font-size: 10pt; }
+    .sidebar, .toggle-btn { display: none; }
+    .layout { display: block; min-height: auto; }
+    .main { padding: 0; max-width: none; }
+    .report-header { display: block; border-radius: 0; padding: 12px; }
+    .section { border: none; border-radius: 0; overflow: visible; }
+    .section-header { padding: 12px 0; }
+    .section-body, .section-body.collapsed { display: block; padding: 12px 0; }
+    h1, h2, h3 { break-after: avoid; }
+    tr, .hop-item { break-inside: avoid; }
+    thead { display: table-header-group; }
+  }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
@@ -91,7 +126,7 @@ SPDX-License-Identifier: Apache-2.0
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="brand">Commerce Compass</div>
+      <div class="brand">Adobe Commerce Upgrade Toolkit</div>
       <div class="sub">Upgrade Roadmap</div>
     </div>
     <nav>
@@ -107,6 +142,8 @@ SPDX-License-Identifier: Apache-2.0
     <div class="report-header">
       <div>
         <h1>Upgrade Roadmap: {{FROM_VERSION}} → {{TO_VERSION}}</h1>
+        <p class="meta">Project: {{PROJECT_NAME}}</p>
+        <p class="report-status">Planning only - not a compatibility assessment</p>
         <div class="meta">Generated {{REPORT_DATE}} &nbsp;·&nbsp; Toolkit v{{TOOLKIT_VERSION}} &nbsp;·&nbsp; Detailed findings per hop live in the separate hop-version reports linked below</div>
       </div>
       <div>
@@ -151,7 +188,8 @@ SPDX-License-Identifier: Apache-2.0
     </div>
 
     <div class="report-footer">
-      Generated by Commerce Compass &nbsp;·&nbsp; v{{TOOLKIT_VERSION}}
+      Generated by Adobe Commerce Upgrade Toolkit &nbsp;·&nbsp; {{REPORT_DATE}} &nbsp;·&nbsp; v{{TOOLKIT_VERSION}}
+      <p class="report-limitation">This report is not proof of production readiness. See per-hop reports for assessment status and blockers.</p>
     </div>
 
   </main>

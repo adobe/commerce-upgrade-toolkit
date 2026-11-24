@@ -57,7 +57,7 @@ function parseJson(result) {
   return JSON.parse(result.stdout);
 }
 
-test('scheduled CI scans committed content instead of skipping the encryption gate', () => {
+test('PR CI scans committed changes against the base and fails on missing base', () => {
   const workflow = readFileSync(join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
   const step = workflow.match(/      - name: Run encryption-safety checker[\s\S]*?        run: \|\n([\s\S]*?)(?=\n      - name:)/);
   assert.ok(step, 'encryption workflow step must be present');
@@ -66,26 +66,35 @@ test('scheduled CI scans committed content instead of skipping the encryption ga
   for (const unsafe of [false, true]) {
     const dir = makeRepo();
     try {
+      const base = git(dir, ['rev-parse', 'HEAD']).trim();
       mkdirSync(join(dir, '.claude', 'scripts'), { recursive: true });
       for (const file of ['check-encryption-changes.mjs', 'anchored-fs.mjs']) {
         writeFileSync(join(dir, '.claude', 'scripts', file),
           readFileSync(join(repoRoot, '.claude', 'scripts', file)));
       }
-      writeFileSync(join(dir, 'app', 'code', 'Foo', 'Model', 'Scheduled.php'),
+      writeFileSync(join(dir, 'app', 'code', 'Foo', 'Model', 'Changed.php'),
         unsafe ? '<?php openssl_encrypt($value, $cipher, $key);\n' : '<?php echo "safe";\n');
       git(dir, ['add', '-A']);
-      git(dir, ['commit', '-q', '-m', 'test: scheduled scan']);
+      git(dir, ['commit', '-q', '-m', 'test: PR scan']);
       const result = spawnSync('bash', ['-e', '-c', command], {
         cwd: dir,
         encoding: 'utf8',
         timeout: 30000,
-        env: { ...process.env, GH_EVENT_NAME: 'schedule', PR_BASE_SHA: '', PUSH_BEFORE_SHA: '' },
+        env: { ...process.env, PR_BASE_SHA: base },
       });
       assert.equal(result.status, unsafe ? 1 : 0, result.stdout + result.stderr);
       const out = parseJson(result);
       assert.equal(out.status, unsafe ? 'blocked' : 'ok');
       if (unsafe) {
         assert.ok(out.violations.some((v) => v.rule === 'ENC_DIRECT_CIPHER_CALL' && v.source === 'committed'));
+      }
+      for (const missingBase of ['', 'no-such-commit']) {
+        const rejected = spawnSync('bash', ['-e', '-c', command], {
+          cwd: dir, encoding: 'utf8', timeout: 30000,
+          env: { ...process.env, PR_BASE_SHA: missingBase },
+        });
+        assert.equal(rejected.status, 1, rejected.stdout + rejected.stderr);
+        assert.match(rejected.stdout, /::error::/);
       }
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -915,7 +924,7 @@ test('a hardlinked working source fails closed before reading its content', () =
 });
 
 test('an ancestor swapped during source opening cannot redirect the read outside the repo',
-  { skip: process.platform !== 'linux' ? 'Linux descriptor protections required' : false }, () => {
+  { skip: !['linux', 'darwin'].includes(process.platform) ? 'Linux procfs or macOS volfs descriptor protections required' : false }, () => {
     for (const script of [checkerScript, mirroredCheckerScript]) {
       const dir = makeRepo();
       const outside = mkdtempSync(join(tmpdir(), 'ccua-enc-outside-'));
@@ -929,16 +938,18 @@ test('an ancestor swapped during source opening cannot redirect the read outside
         writeFileSync(preload, `
 const fs = require('node:fs');
 const original = fs.openSync;
+const outsideFile = fs.statSync(${JSON.stringify(join(outside, 'Race.php'))});
 let swapped = false;
 fs.openSync = function(file, ...args) {
-  if (!swapped && String(file).startsWith('/proc/self/fd/') && String(file).endsWith('/Race.php')) {
+  if (!swapped && /^\\/(?:proc\\/self\\/fd|\\.vol)\\//.test(String(file)) && String(file).endsWith('/Race.php')) {
     swapped = true;
     fs.renameSync(${JSON.stringify(parent)}, ${JSON.stringify(join(dir, 'held-model'))});
     fs.symlinkSync(${JSON.stringify(outside)}, ${JSON.stringify(parent)});
     fs.writeFileSync(${JSON.stringify(swapped)}, 'swapped');
   }
   const descriptor = original(file, ...args);
-  if (fs.realpathSync('/proc/self/fd/' + descriptor) === ${JSON.stringify(join(outside, 'Race.php'))}) {
+  const opened = fs.fstatSync(descriptor);
+  if (opened.dev === outsideFile.dev && opened.ino === outsideFile.ino) {
     fs.writeFileSync(${JSON.stringify(openedOutside)}, 'outside descriptor opened');
   }
   return descriptor;

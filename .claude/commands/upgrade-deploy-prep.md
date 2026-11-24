@@ -132,14 +132,16 @@ checklist items as-is, in the same checkbox format the runbook itself uses (see 
 
 ## Step 4: Write Report
 
-Dispatch the `commerce-documentation-engineer` agent to generate the report — do not build
-the HTML in this session. Give it the runbook and Step 2 check results; it writes
+Dispatch the `commerce-documentation-engineer` agent to compose the report. Include the
+**Document report persistence handoff** from `write-scope`; this session may persist only
+the reviewed proposal if the child lacks write tools. Give it the runbook and Step 2 check results; it prepares
 `.claude/reports/upgrade-deploy-plan-{date}.html` using the same self-contained HTML
 conventions as the `upgrade-hop-report` skill (inline CSS/JS, no CDN dependencies,
 checkbox-style checklist for each runbook step, print-friendly). The report must never
 contain credential values, matched source lines, or secrets from `env.php`/`auth.json`/
 `.magento.env.yaml` — only file paths and remediation guidance.
 
+Verify the saved report by read-back before reporting success or creating links.
 If `roadmapReportPath` exists in upgrade-state.md, update its report to add a "Deploy Prep"
 link pointing to the newly written deploy plan. This roadmap update can be done directly in
 this session.

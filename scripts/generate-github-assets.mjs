@@ -103,7 +103,7 @@ function parseFrontmatter (raw) {
   return { data, body }
 }
 
-function convertToolsList (toolsStr = '') {
+function convertToolsList (toolsStr = '', agentName = '') {
   const items = toolsStr.split(',').map((s) => s.trim()).filter(Boolean)
   const aliases = new Set()
   const mcp = []
@@ -112,6 +112,11 @@ function convertToolsList (toolsStr = '') {
     if (item === 'Bash' || item.startsWith('Bash(')) { aliases.add('execute'); continue }
     if (item === '*') { aliases.add('*'); continue }
     aliases.add(TOOL_ALIAS_MAP[item] || item.toLowerCase())
+    // Keep VS Code aliases and explicit SDK tools for the document-only writer.
+    if (agentName === 'commerce-documentation-engineer') {
+      if (item === 'Read') aliases.add('view')
+      if (item === 'Write' || item === 'Edit') aliases.add('apply_patch')
+    }
   }
   return [...aliases, ...mcp].join(', ')
 }
@@ -184,7 +189,7 @@ async function generateAgents () {
       '---',
       `name: ${data.name}`,
       `description: ${yamlScalar(data.description)}`,
-      `tools: ${convertToolsList(data.tools)}`
+      `tools: ${convertToolsList(data.tools, data.name)}`
     ]
     if (data.model) fmLines.push(`model: ${convertModel(data.model)}`)
     fmLines.push('---')

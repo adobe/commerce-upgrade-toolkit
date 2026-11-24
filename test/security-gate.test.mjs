@@ -354,6 +354,20 @@ test('CI changed-scan fails on blocking findings and scanner errors, passes when
   assert.equal(bad.status, BLOCKED);
 }));
 
+test('workflows run CI only for PR updates and publish only merged release PRs', () => {
+  const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
+  const publish = readFileSync(join(root, '.github/workflows/on-push-publish-to-npm.yml'), 'utf8');
+  const ciEvents = ci.slice(ci.indexOf('\non:'), ci.indexOf('\npermissions:'));
+  assert.match(ciEvents, /pull_request:\n    types: \[opened, synchronize, reopened, ready_for_review\]/);
+  assert.doesNotMatch(ciEvents, /push:|schedule:|create:|closed|workflow_dispatch:|pull_request_target:/);
+  const publishEvents = publish.slice(publish.indexOf('\non:'), publish.indexOf('\npermissions:'));
+  assert.match(publishEvents, /pull_request:\n    types: \[closed\]\n    branches:\n      - "release\/\*"/);
+  assert.doesNotMatch(publishEvents, /push:|create:|schedule:|workflow_dispatch:|pull_request_target:/);
+  assert.match(publish, /publish:\n    if: github\.event\.pull_request\.merged == true/);
+  assert.match(publish, /ref: \$\{\{ github\.event\.pull_request\.merge_commit_sha \}\}/);
+  assert.match(publish, /uses: JS-DevTools\/npm-publish@v1/);
+});
+
 test('CI workflow defines a least-privilege test and security job that cannot soft-fail', () => {
   const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
   const job = ci.slice(ci.indexOf('\n  test:'), ci.indexOf('\n  dependency-review:'));

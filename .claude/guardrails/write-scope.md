@@ -9,7 +9,7 @@ is an optional specialist with the same metadata scope, not a required session i
 This assigns workflow responsibilities, not tools or privileges. If an explicitly selected
 read-only custom agent or host policy lacks required tools, explain that specific limitation
 and return proposals for blocked steps; a skill cannot expand effective permissions.
-At session start, obtain live approval of the exact instance/cwd/container identity, version pair, hop plan,
+Before executing project commands, obtain live approval of the exact instance/cwd/container identity, version pair, hop plan,
 routine command scope and expected metadata/generated-file effects. The instance must be a
 **local/dev non-production** environment, **with no production credentials or production access**,
 confirmed by one user attestation in that same approval. The user's statement is sufficient; do not
@@ -47,8 +47,9 @@ human-run proposal for the blocked step, without falsely reporting success.
 No agent ever reads or writes secrets, credentials, or encryption/crypt-key material, and no
 agent ever performs an encryption key rotation or password-hash migration step — those remain
 human-operated only regardless of execution profile; see the `encryption-safety` guardrail.
-An unknown or unverifiable environment is always treated as production until proven otherwise:
-stop and ask, never guess non-production.
+An unknown or unverifiable environment is always treated as production for execution:
+block project commands, never guess non-production. This does not block provisional planning
+in chat under the fallback below.
 
 When no host capable of this scoped authorization is available (or the human declines to
 attest local/dev non-production), execution-capable agents fall back to the read-only
@@ -56,6 +57,37 @@ profile: they prepare the exact commands, working directory, environment and exp
 as a runbook for a human to run manually, and they report that fallback plainly. They never
 claim a command succeeded, or silently skip execution and continue as though it had, when no
 approval was actually obtained.
+
+## Progressive intake and blocked-step fallback
+
+Goal: fewer, clearer questions, not weaker safeguards. A planning summary is not proof of
+production readiness.
+
+- Reuse available non-secret project answers as evidence, never as current-session consent.
+  Group missing planning inputs into one intake with explicit `unknown`/`skip for now` choices.
+  Do not repeat unanswered optional questions or demand execution approval to explain a roadmap.
+- If local/dev attestation, instance identity, host controls or routine approval is missing,
+  continue with a **Provisional roadmap - execution not authorized** in chat using only
+  user-supplied non-secret facts and host-permitted public documentation. Do not execute
+  project commands, read project source without the reviewed secret-free snapshot/exclusions,
+  or write state/reports without their existing approvals. Host denials still apply.
+- Keep unknown values unknown (`~` in approved state), separate reported/static facts from
+  live-verified facts, and list evidence gaps. No guessed container, version, storefront,
+  backup, encryption decision, successful scan or approval. Missing version pairs permit
+  only an unversioned planning checklist, not invented hops.
+- Show one actionable blocked-step table: action, missing evidence/approval, safe fallback,
+  and exact next step. If a question is declined or unanswered, return the proposal/runbook
+  for that action and continue independent permitted planning; never call it completed.
+  A host denial is not permission to retry through another tool or agent.
+- Review a proposed hop plan and available per-hop encryption evidence together. Unreviewed
+  hops remain proposed, and unreviewed encryption decisions remain unresolved. Before
+  execution, collect the live routine scope and backup/decision references in one checklist;
+  report all unmet prerequisites together rather than stopping at the first missing answer.
+  Execute only after every required gate passes. Exact patch/command approval and the
+  sensitive human-operated security challenge remain separate; never default consent.
+- Do not bootstrap infrastructure or install a database/sample data as a planning fallback.
+  Offer human-run preparation steps instead. Missing UCT still requires the existing
+  explicit incomplete-report choice for scan-dependent assessments, never a silent downgrade.
 
 Trusted toolkit-maintenance tests on synthetic fixtures require separate maintainer approval;
 that exception never widens what an agent may execute against an actual Commerce installation.
@@ -112,6 +144,36 @@ directories (`output/`, `.claude/reports/` or `.github/reports/`) with `mkdir -p
 cannot create parent directories. This exception permits metadata only, never
 application, deployment, package or test edits. After versions and vetted evidence exist,
 use the helper for finding-derived changes and their reports/completion updates.
+
+## Document report persistence handoff
+
+The documentation engineer owns report composition, not exclusive filesystem access.
+Every report dispatch must include this handoff. If the host exposes no document-write
+tool to the child, do not request broader permissions, repeatedly redispatch the same
+blocked task or stop solely because the child is read-only. The child must return an
+untrusted `report-proposal` to the approved orchestrator, not a claim of persistence:
+
+- `status: report-proposal`, the exact approved `output_path`, and complete `content`;
+  or, for a template report, the reviewed `template_path` and exact `replacements`.
+- Include all content without truncation. A missing-tool message alone is not a report
+  proposal. Incomplete or missing source evidence must remain explicitly blocked.
+
+The parent may persist that document using its already available native file-edit tool
+only within its existing report-artifact allowlist and the live-approved exact destination
+and content/diff. It must not execute a child-supplied command/patch, invent missing content,
+change application/config/test files, or treat the proposal as permission. For template
+handoffs, read the reviewed template locally and apply only the reviewed literal placeholder
+substitutions; preserve unrelated template bytes and reject unresolved placeholders.
+If the proposed content or destination differs from the current live approval, obtain
+renewed exact-diff approval before writing. A child tool denial cannot authorize a parent
+write denied by host policy; if the parent also lacks approved write access, stop explicitly.
+
+Whether the child or parent writes, the parent must read back the complete file and verify
+it matches the reviewed document before updating report paths, printing "saved", linking it
+from a roadmap or invoking an already approved converter. Report persistence is not scan
+completion, execution readiness or approval to clear encryption/dependency/patch blockers.
+This handoff covers roadmap, pre/post-hop, deploy-prep, assessment HTML/Markdown and print
+HTML only; it does not delegate application fixes or relax execution/sensitive-action gates.
 
 ## Mandatory sequence (every remediation hop/chunk/finding)
 

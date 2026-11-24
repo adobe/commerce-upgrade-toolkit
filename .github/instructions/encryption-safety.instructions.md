@@ -106,8 +106,8 @@ cryptographic correctness or complete re-encryption coverage:
   an unreadable source is never treated as a clean scan.
 - Source symlinks are rejected in Git blobs and working files. Disk reads also reject
   symlinked ancestors, hardlinks, nonregular files, oversized sources and observed drift.
-  Working-file reads require the bundled Linux procfs descriptor helper; unsupported
-  hosts fail explicitly rather than falling back to insecure pathname reads.
+  Working-file reads require the bundled Linux procfs or macOS volfs descriptor helper;
+  unsupported hosts fail explicitly rather than falling back to insecure pathname reads.
   Held descriptors and attachment checks are not a sandbox against a same-UID or
   privileged actor moving directories; use the reviewed secret-free environment.
 - DI checks target the exact native Magento Framework Encryptor types, not unrelated

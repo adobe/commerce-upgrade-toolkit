@@ -14,10 +14,11 @@ SPDX-License-Identifier: Apache-2.0
 'use strict'
 
 const { Command, Flags } = require('@oclif/core')
-const { access, lstat, mkdtemp, readFile, rm } = require('node:fs/promises')
+const { lstat, mkdtemp, readFile, rm } = require('node:fs/promises')
 const { spawn } = require('node:child_process')
 const { tmpdir } = require('node:os')
 const path = require('node:path')
+const { pathToFileURL } = require('node:url')
 const { promptForAgent } = require('../../ccua/agent/select')
 
 const TOOLKIT_PACKAGE = '@adobe/commerce-upgrade-toolkit'
@@ -58,10 +59,9 @@ class ToolsSetupCommand extends Command {
       if (Number(process.versions.node.split('.')[0]) < 22) {
         throw new Error('The toolkit requires Node.js 22 or later.')
       }
-      if (process.platform !== 'linux') {
-        throw new Error('The toolkit installer requires Linux /proc. Run this command in your Linux development container.')
+      if (!['linux', 'darwin'].includes(process.platform)) {
+        throw new Error('The toolkit installer supports Linux and macOS hosts. On Windows, run it from WSL or use the temporary-container setup in docs/setup-guide.md.')
       }
-      await access('/proc/self/fd')
 
       currentStep = 'agent selection'
       const agent = flags.agent ? AGENTS[flags.agent] : await promptForAgent()
@@ -88,6 +88,15 @@ class ToolsSetupCommand extends Command {
         if (!stat.isFile()) throw new Error(`Downloaded toolkit is missing its installer entry point: ${script}`)
       }
       this.log(`Downloaded toolkit v${pkg.version} for ${selectedAgent}`)
+
+      currentStep = 'host support check'
+      const { openAnchoredDirectory } = await import(
+        pathToFileURL(path.join(toolRoot, 'scripts', 'lib', 'anchored-fs.mjs')).href)
+      try {
+        openAnchoredDirectory(projectRoot).close()
+      } catch (error) {
+        throw new Error(`The project path cannot be used for setup's protected file writes: it contains a symbolic link, or its filesystem does not support them (${error.code || 'unsupported'}). Use the real path (for example with cd -P), or the temporary-container setup in docs/setup-guide.md.`)
+      }
 
       const agentDir = agent === 'github-copilot' ? '.github' : '.claude'
       const marker = path.join(projectRoot, agentDir, 'context', '.ccua-version')

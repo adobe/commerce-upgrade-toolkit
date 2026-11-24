@@ -6,12 +6,91 @@ SPDX-License-Identifier: Apache-2.0
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath, satisfies, customModuleEvidence, patchEvidence } from '../.claude/scripts/assess_tools.mjs'
+import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath, satisfies, customModuleEvidence, patchEvidence, uctPrerequisite } from '../.claude/scripts/assess_tools.mjs'
 
-const f = (over = {}) => ({ code: 'MC-1', type: 'critical', file: 'a.php', line: 1, message: 'removed', ...over })
+const f = (over = {}) => ({ code: 'MC-1', type: 'critical', file: 'a.php', line: 1,
+  symbol: 'Magento\\Example\\Model::removedMethod', message: 'removed', ...over })
+
+test('UCT prerequisites accept verified installed modes but do not declare a scan clean', () => {
+  for (const [probe, mode] of [
+    [{ inProjectExitCode: 0 }, 'in-project'],
+    [{ inProjectExitCode: 1, composerExitCode: 0 }, 'composer'],
+    [{ inProjectExitCode: 1, standaloneExitCode: 0 }, 'standalone-fallback']
+  ]) {
+    const result = uctPrerequisite(probe)
+    assert.equal(result.status, 'available')
+    assert.equal(result.mode, mode)
+    assert.equal(result.scanAllowed, true)
+    assert.equal(result.incompleteReportAllowed, false)
+    assert.match(result.reason, /scan and normalization results are still required/)
+  }
+});
+
+test('missing, declined and failed UCT require an explicit incomplete-report decision', () => {
+  for (const [installationOutcome, status] of [
+    ['not-attempted', 'missing'], ['declined', 'declined'],
+    ['failed', 'failed'], ['completed', 'failed']
+  ]) {
+    const input = { inProjectExitCode: 1, standaloneExitCode: 1, installationOutcome }
+    const paused = uctPrerequisite(input)
+    assert.equal(paused.status, status)
+    assert.equal(paused.scanAllowed, false)
+    assert.equal(paused.mode, null)
+    assert.equal(paused.incompleteReportAllowed, false)
+    const incomplete = uctPrerequisite({ ...input, continueIncomplete: true })
+    assert.equal(incomplete.scanAllowed, false)
+    assert.equal(incomplete.incompleteReportAllowed, true)
+    assert.ok(incomplete.reason)
+  }
+  assert.equal(uctPrerequisite().status, 'missing', 'unrun probes do not prove availability')
+  assert.equal(uctPrerequisite({ standaloneExitCode: 0, installationOutcome: 'completed' }).status,
+    'available', 'human installation must be reverified')
+  assert.throws(() => uctPrerequisite({ inProjectExitCode: true }), /exit codes/)
+  assert.throws(() => uctPrerequisite({ composerExitCode: '0' }), /exit codes/)
+  assert.throws(() => uctPrerequisite({ continueIncomplete: 'yes' }), /incomplete-report decision/)
+});
+
+test('UCT probe execution failures do not suggest reinstalling a missing tool', () => {
+  const result = uctPrerequisite({ inProjectExitCode: 1, composerExitCode: 1,
+    standaloneExitCode: 1, probeFailure: 'execution-failed', continueIncomplete: true })
+  assert.equal(result.status, 'execution-failed')
+  assert.equal(result.scanAllowed, false)
+  assert.equal(result.incompleteReportAllowed, true)
+  assert.match(result.reason, /repair the PHP\/environment\/access failure/)
+  assert.equal(uctPrerequisite({ composerExitCode: 0, probeFailure: 'execution-failed' }).status,
+    'available', 'one working executable avoids unnecessary installation')
+  assert.throws(() => uctPrerequisite({ probeFailure: 'guess' }), /invalid UCT/)
+});
+
+test('UCT prerequisite CLI classifies live evidence without modifying project dependencies', () => {
+  const root = mkdtempSync(join(tmpdir(), 'uct-prerequisite-'))
+  const helper = new URL('../.claude/scripts/assess_tools.mjs', import.meta.url)
+  try {
+    const composer = join(root, 'composer.json'), lock = join(root, 'composer.lock')
+    writeFileSync(composer, '{"require":{"magento/product-enterprise-edition":"2.4.8-p5"}}')
+    writeFileSync(lock, '{"packages":[]}')
+    const before = [readFileSync(composer, 'utf8'), readFileSync(lock, 'utf8')]
+    const probes = join(root, 'probes.json')
+    for (const installationOutcome of ['not-attempted', 'declined', 'failed']) {
+      writeFileSync(probes, JSON.stringify({ inProjectExitCode: 1, standaloneExitCode: null,
+        installationOutcome, continueIncomplete: true }))
+      const result = spawnSync(process.execPath, [fileURLToPath(helper), 'uct-prerequisite', probes],
+        { cwd: root, encoding: 'utf8' })
+      assert.equal(result.status, 0, result.stderr)
+      const evidence = JSON.parse(result.stdout)
+      assert.equal(evidence.scanAllowed, false)
+      assert.equal(evidence.incompleteReportAllowed, true)
+      assert.deepEqual([readFileSync(composer, 'utf8'), readFileSync(lock, 'utf8')], before)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+});
 
 test('diffUct ignores line shifts and keeps only target-introduced findings', () => {
   const result = diffUct([f({ line: 5 })], [f({ line: 9 }), f({ file: 'b.php' })])
@@ -24,6 +103,28 @@ test('diffUct reports resolved findings and respects duplicates', () => {
   const result = diffUct([f(), f()], [f()])
   assert.equal(result.resolvedCount, 1)
   assert.equal(result.introducedCount, 0)
+})
+
+test('diffUct uses code, file and strict symbol, not wording or classification', () => {
+  const result = diffUct([f()], [f({ line: 99, type: 'renamed-classification',
+    message: 'different wording' }), f({ symbol: 'Magento\\Example\\Model::anotherMethod' })])
+  assert.equal(result.introducedCount, 1)
+  assert.equal(result.introduced[0].symbol, 'Magento\\Example\\Model::anotherMethod')
+  assert.equal(result.resolvedCount, 0)
+  for (const change of [{ code: 'MC-2' }, { file: 'other.php' }]) {
+    const changed = diffUct([f()], [f(change)])
+    assert.equal(changed.introducedCount, 1)
+    assert.equal(changed.resolvedCount, 1)
+  }
+})
+
+test('diffUct rejects raw or malformed identity fields instead of matching undefined symbols', () => {
+  for (const value of [null, [], f({ symbol: undefined }), f({ symbol: 'Class::method(); run()' }),
+    f({ file: '../a.php' }), f({ file: '/a.php' }), f({ code: '' })]) {
+    assert.throws(() => diffUct([value], []), /normalized code/)
+    assert.throws(() => diffUct([], [value]), /normalized code/)
+  }
+  assert.equal(diffUct([], []).introducedCount, 0)
 })
 
 test('suggestComplexity follows the High/Medium/Small rules', () => {
@@ -76,6 +177,72 @@ test('validate requires gaps for UNKNOWN rows', () => {
   d.sections.thirdParty.rows = [{ complexity: 'UNKNOWN', reason: 'no vendor data', decision: 'REVIEW' }]
   assert.match(validate(d).join('\n'), /gaps is empty/)
 })
+
+test('incomplete UCT assessments validate only with explicit gaps and unavailable evidence', () => {
+  const d = doc()
+  d.complexity.small = 0
+  d.sections.commerceCompatibility = {
+    status: 'not-assessed', reason: 'UCT installation declined; install manually and rerun',
+    baselineRun: null, targetRun: null, differentialRows: [], debtCategories: [],
+    quarantineCount: null
+  }
+  d.gaps = ['UCT: Not assessed; human-run installation declined']
+  assert.deepEqual(validate(d), [])
+  d.sections.commerceCompatibility.quarantineCount = 0
+  assert.match(validate(d).join('\n'), /null run\/count evidence/)
+  d.sections.commerceCompatibility.quarantineCount = null
+  d.sections.commerceCompatibility.targetRun = 'old-scan.json'
+  assert.match(validate(d).join('\n'), /null run\/count evidence/)
+  d.sections.commerceCompatibility.targetRun = null
+  d.gaps = []
+  assert.match(validate(d).join('\n'), /UCT is Not assessed but gaps is empty/)
+});
+
+test('assessed UCT requires both scans and retains quarantine evidence gaps', () => {
+  const d = doc()
+  d.complexity.small = 0
+  d.sections.commerceCompatibility = {
+    status: 'assessed', baselineRun: 'baseline-normalized.json', targetRun: 'target-normalized.json',
+    differentialRows: [], quarantineCount: 1
+  }
+  assert.match(validate(d).join('\n'), /quarantine blockers require gaps/)
+  d.gaps = ['UCT: one quarantined finding needs review']
+  assert.deepEqual(validate(d), [])
+  d.sections.commerceCompatibility.baselineRun = null
+  assert.match(validate(d).join('\n'), /requires both run references/)
+});
+
+test('both agent flavors gate scan reports without adding UCT to roadmap planning', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const prefix of ['.claude', '.github']) {
+    const command = name => prefix === '.claude'
+      ? `${prefix}/commands/${name}.md` : `${prefix}/skills/${name}/SKILL.md`
+    const skill = prefix === '.claude' ? '.claude/skills/uct-install.md'
+      : '.github/skills/uct-install/SKILL.md'
+    const assess = read(command('upgrade-assess'))
+    assert.ok(assess.indexOf('### Step 0a: UCT prerequisite') < assess.indexOf('## Step 2: Collect evidence'))
+    assert.match(assess, /never install dependencies in this command/)
+    assert.match(assess, /quarantineCount: null/)
+    const hop = read(command('upgrade-hop'))
+    const analysis = hop.split('## ANALYSIS MODE')[1]
+    assert.ok(analysis.indexOf('**UCT prerequisite') < analysis.indexOf('Apply the `upgrade-uca-scan`'))
+    assert.doesNotMatch(hop.split('## ANALYSIS MODE')[0], /Assessment prerequisite|uctPrerequisite/)
+    assert.match(analysis, /Leave the hop unanalysed/)
+    assert.match(analysis, /Do not mark an incomplete hop analysed/)
+    assert.doesNotMatch(analysis, /skill to install and run the scan|falls back automatically to a\nstandalone install/)
+    assert.match(read(command('upgrade-hop-execute')), /currentHop\.uctAssessment\.status.*`not-assessed`/)
+    assert.match(read(skill), /human-run installation procedure/)
+    assert.match(read(skill), /Set `continueIncomplete: true` only after that explicit live choice/)
+    assert.match(read(skill), /php vendor\/bin\/uct --version/)
+    assert.match(read(skill), /composerExitCode/)
+    assert.match(read(skill), /UCT is required for a completed compatibility assessment\. Choose:/)
+    for (const failure of ['execution-failed', 'normalization-unsupported']) {
+      assert.ok(read(skill).includes(failure))
+      assert.ok(assess.includes(failure))
+      assert.ok(analysis.includes(failure))
+    }
+  }
+});
 
 test('classifyPatch triages patches and never guesses when evidence is missing', () => {
   assert.equal(classifyPatch({ fixedUpstream: true }).action, 'DROP')
