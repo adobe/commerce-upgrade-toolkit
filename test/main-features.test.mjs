@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -351,6 +351,63 @@ for (const [agent, agentDir] of flavours) {
       assert.equal(JSON.parse(readFileSync(join(project, normalized), 'utf8')).blocked, true)
     }))
   }
+
+  test(`installed ${agent} fixture pipeline normalizes UCT 3.x {issues, stats} reports strictly`, () => fixture(({ project, env }) => {
+    cli(project, env, 'ccua:setup', ['--agent', agent])
+    const file = 'app/code/Test/Model/Publisher.php'
+    mkdirSync(join(project, 'app/code/Test/Model'), { recursive: true })
+    writeFileSync(join(project, file), '<?php // UCT 3 fixture source\n')
+    const context = `${agentDir}/context`
+    const raw = `${context}/upgrade-findings.json`
+    const normalized = `${context}/upgrade-findings.normalized.json`
+    const evidence = `${context}/upgrade-findings.quarantine.json`
+    const issue = (code, message, extra = {}) => ({
+      lineNumber: 3, level: 'CRITICAL', message, code, fileName: join(realpathSync(project), file),
+      validationType: 'php', ...extra,
+    })
+    const report = {
+      issues: [
+        issue(1114, "Using class 'Magento\\Framework\\Stomp\\Connection\\Factory' that does not exist on version '2.4.8'"),
+        issue(1134, "Using class 'Magento\\Foo\\Bar' that is @deprecated on version '2.4.8' use Baz instead", { level: 'WARNING' }),
+      ],
+      stats: { currentVersion: '2.4.6', targetVersion: '2.4.8', critical: 1, errors: 0, warnings: 1 },
+    }
+    const python = (script, args) => spawnSync('python3', [`${agentDir}/scripts/${script}`, ...args],
+      { cwd: project, env, encoding: 'utf8', timeout: 10000 })
+    const run = (target = '2.4.8') => python('normalize_uct.py', [
+      raw, normalized, evidence, '--project-root', '.', '--target-version', target])
+    const capture = () => python('capture_uct.py', ['--project-root', '.', '--agent', agent,
+      '--mode', 'stdout', '--', process.execPath, '-e', 'process.stdout.write(process.argv[1])',
+      '--', JSON.stringify(report)])
+    assert.equal(capture().status, 0)
+    assert.equal(capture().status, 0, 'a previous UCT 3.x raw report is a recognized overwrite target')
+    const accepted = run()
+    assert.equal(accepted.status, 0, accepted.stderr)
+    assert.match(accepted.stdout, /"rawIssueCount": 2/)
+    const data = JSON.parse(readFileSync(join(project, normalized), 'utf8'))
+    assert.deepEqual(data.counts, { accepted: 2, quarantined: 0, total: 2 })
+    assert.deepEqual(data.accepted.map(({ file, code, type, severity, symbol }) => [file, code, type, severity, symbol]), [
+      [file, '1114', 'UCT3_PHP', 'error', 'Magento\\Framework\\Stomp\\Connection\\Factory'],
+      [file, '1134', 'UCT3_PHP', 'warning', 'Magento\\Foo\\Bar'],
+    ])
+
+    const blockers = [
+      issue(5087, 'Private methods should not be declared as final since PHP 8.0'),
+      issue(1114, "Using class 'Magento\\Foo' that does not exist on version '2.4.8'", { fileName: '/etc/passwd' }),
+      issue(1114, "Using class 'A\\B; DROP' that does not exist on version '2.4.8'"),
+      issue(1114, "Using class 'A\\B' that does not exist on version '2.4.8'", { fileName: `${join(realpathSync(project), file)}/../../../.env` }),
+      issue(1114, "Using class 'A\\B' that does not exist on version '2.4.8'", { extra: 'x' }),
+      issue(1114, "Using class 'A\\B' that does not exist on version '2.4.8'", { level: 'INFO' }),
+    ]
+    writeFileSync(join(project, raw), JSON.stringify({ ...report, issues: blockers }))
+    const blocked = run()
+    assert.equal(blocked.status, 2, 'unsupported UCT 3.x findings must block, not disappear')
+    const blockedData = JSON.parse(readFileSync(join(project, normalized), 'utf8'))
+    assert.deepEqual(blockedData.counts, { accepted: 0, quarantined: blockers.length, total: blockers.length })
+
+    writeFileSync(join(project, raw), JSON.stringify(report))
+    assert.equal(run('2.4.9').status, 2, 'a conflicting stats.targetVersion must block')
+  }))
 }
 
 test('npm distribution includes every runtime dependency file and workflow asset', () => fixture(({ dir, env }) => {

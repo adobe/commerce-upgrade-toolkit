@@ -2,6 +2,18 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
+## [1.0.10]
+
+- Normalize UCT 3.x reports (`{issues, stats}`): accept only `php` issues whose integer code and exact message match a single-symbol class, interface, constant, method or property template from UCT's own catalogue, mapping `CRITICAL`/`ERROR` to `error` and `WARNING` to `warning`. Trailing deprecation text is matched but never stored.
+- Keep every other UCT 3.x record quarantined as a counted human-review blocker: DB schema, core-file, PHPCompatibility and multi-symbol codes, unknown fields, unsupported levels, invalid line numbers, conflicting or invalid target versions, and file names outside the project root or failing the source-path policy.
+- Report `rawIssueCount` for UCT 3.x captures, and let the change-plan review helper validate UCT 3.x rows (`UCT3_PHP`) alongside the legacy MC-code rows.
+- Let the raw-capture helper recognize UCT 3.x artifacts as a valid existing destination instead of rejecting them as unrecognized.
+- Document the UCT 3.x format in the `upgrade-uca-scan` skill (Claude Code and GitHub Copilot flavours), including scanning git-checkout projects with `--ignore-current-version-compatibility-issues` so baseline noise from a branch newer than the release is not counted as findings.
+- Add normalization, capture and review-helper tests for UCT 3.x accepted, quarantined and out-of-root cases.
+- Update dependencies: `@oclif/core` 4.3.1 → 5.1.12 and `fs-extra` 11.3.6 → 11.4.1.
+- Update CI and release workflow actions: `actions/checkout` v7, `actions/setup-node` v7, `actions/upload-artifact` v7.0.2, `actions/dependency-review-action` v5.0.1 and `JS-DevTools/npm-publish` v4.
+- No change to approval, write-scope, encryption or sensitive-action gates. UCT 3.x diagnostics outside the accepted catalogue remain quarantined; an unrecognized format is never silently downgraded.
+
 ## [1.0.9]
 
 - Run toolkit setup and updates natively on macOS hosts: the anchored file-write helper now addresses held directories through macOS volfs (`/.vol/<device>/<inode>`) as it does through `/proc/self/fd` on Linux, keeping the no-follow and held-directory protections and failing closed where the reference does not resolve.

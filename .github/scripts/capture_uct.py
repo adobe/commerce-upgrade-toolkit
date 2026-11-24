@@ -68,9 +68,13 @@ def raw_state(directory):
             raise ValueError("raw destination changed")
         raw = read_capture(descriptor)
         value = json.loads(raw, object_pairs_hook=unique_object, parse_constant=reject_constant)
-        if (type(value) is not dict or not set(value) <= {"summary", "errors", "warnings", "targetVersion"}
-                or not any(key in value for key in ("errors", "warnings"))
-                or any(type(value[key]) is not list for key in ("errors", "warnings") if key in value)):
+        if type(value) is not dict:
+            raise ValueError("existing destination is not a recognized raw UCT artifact")
+        legacy = (set(value) <= {"summary", "errors", "warnings", "targetVersion"}
+                  and any(key in value for key in ("errors", "warnings"))
+                  and all(type(value[key]) is list for key in ("errors", "warnings") if key in value))
+        uct3 = set(value) == {"issues", "stats"} and type(value["issues"]) is list and type(value["stats"]) is dict
+        if not (legacy or uct3):
             raise ValueError("existing destination is not a recognized raw UCT artifact")
         return identity(metadata), hashlib.sha256(raw).hexdigest()
     finally:
