@@ -17,7 +17,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 from normalize_uct import (contained, escaped, unique_object, reject_constant, VERSION, PATTERNS,
-                           read_file_bytes, validate_policy, open_directory_chain,
+                           uct3_row_valid, read_file_bytes, validate_policy, open_directory_chain,
                            verify_directory_chain)
 from research_url import validate as validate_url
 
@@ -128,7 +128,7 @@ def evidence(root, plan, policy):
             require(not matches([pattern for pattern in policy["denied"]
                                  if pattern != r"vendor(?:/.*)?"], row["file"]))
             contained(root, row["file"], must_exist=False)
-            require(any(row["code"] == code and row["type"] == kind and
+            require(uct3_row_valid(row) or any(row["code"] == code and row["type"] == kind and
                         re.fullmatch(pattern.replace(" was removed", "").replace(" is deprecated", ""),
                                      ("Method " + row["symbol"] + "()") if code == "MC-43"
                                      else "Class " + row["symbol"], flags=re.ASCII)

@@ -25,6 +25,94 @@ PATTERNS = (
 PATH = re.compile(r"(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+")
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-p[0-9]+)?")
 
+# UCT 3.x writes {issues, stats}. Only the single-symbol PHP code families from UCT's own
+# config/issues.yaml are accepted; every other code (DB schema, core files, PHPCompatibility,
+# multi-symbol messages) stays quarantined as a human-review blocker.
+UCT3_TEMPLATES = {
+    1121: "Extending from class '%s' that is non API on version '%s'",
+    1122: "Importing class '%s' that is non API on version '%s'",
+    1124: "Using class '%s' that is non API on version '%s'",
+    1123: "Loading class '%s' that is non API on version '%s'",
+    1111: "Extending from class '%s' that does not exist on version '%s'",
+    1112: "Importing from class '%s' that does not exist on version '%s'",
+    1114: "Using class '%s' that does not exist on version '%s'",
+    1113: "Loading class '%s' that does not exist on version '%s'",
+    1131: "Extending from class '%s' that is @deprecated on version '%s' %s",
+    1132: "Importing from class '%s' that is @deprecated on version '%s' %s",
+    1134: "Using class '%s' that is @deprecated on version '%s' %s",
+    1133: "Loading class '%s' that is @deprecated on version '%s' %s",
+    1224: "Using constant '%s' that is non API on version '%s'",
+    1226: "Assigning constant '%s' that is non API on version '%s'",
+    1225: "Overriding constant '%s' that is non API on version '%s'",
+    1214: "Using constant '%s' that does not exist on version '%s'",
+    1216: "Assigning constant %s that does not exist on version '%s'",
+    1215: "Overriding constant '%s' that does not exist on version '%s'",
+    1234: "Using constant '%s' that is @deprecated on version '%s' %s",
+    1236: "Assigning constant '%s' that is @deprecated on version '%s' %s",
+    1235: "Overriding constant '%s' that is @deprecated on version '%s' %s",
+    1327: "Inherited from interface '%s' that is non API on version '%s'",
+    1328: "Implemented interface '%s' that is non API on version '%s'",
+    1322: "Imported interface '%s' that is non API on version '%s'",
+    1324: "Used interface '%s' that is non API on version '%s'",
+    1317: "Inherited from interface '%s' that does not exist on version '%s'",
+    1318: "Implemented interface '%s' that does not exist on version '%s'",
+    1312: "Imported interface '%s' that does not exist on version '%s'",
+    1314: "Used interface '%s' that does not exist on version '%s'",
+    1337: "Inherited from interface '%s' that is @deprecated on version '%s' %s",
+    1338: "Implemented interface '%s' that is @deprecated on version '%s' %s",
+    1332: "Imported interface '%s' that is @deprecated on version '%s' %s",
+    1334: "Used interface '%s' that is @deprecated on version '%s' %s",
+    1429: "Call method '%s' that is non API on version '%s'",
+    1420: "Instantiating class/interface '%s' that is non API on version '%s'",
+    1410: "Call method '%s' that does not exist on version '%s'",
+    1110: "Instantiating class/interface '%s' that does not exist on version '%s'",
+    1439: "Call method '%s' that is @deprecated on version '%s' %s",
+    1534: "Using property '%s' that is @deprecated on version '%s' %s",
+    1536: "Assigning property '%s' that is @deprecated on version '%s' %s",
+    1535: "Overriding property '%s' that is @deprecated on version '%s' %s",
+    1524: "Using property '%s' that is non API on version '%s'",
+    1526: "Assigning property '%s' that is non API on version '%s'",
+    1525: "Overriding property '%s' that is non API on version '%s'",
+    1514: "Using property '%s' that does not exist on version '%s'",
+    1516: "Assigning property '%s' that does not exist on version '%s'",
+    1515: "Overriding property '%s' that does not exist on version '%s'",
+}
+UCT3_TYPE = "UCT3_PHP"
+UCT3_SYMBOL = r"[A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z0-9_]*)*(?:::\$?[A-Za-z_][A-Za-z0-9_]*)?"
+UCT3_ISSUE_KEYS = {"lineNumber", "issueType", "level", "message", "code", "fileName", "validationType"}
+UCT3_REQUIRED_KEYS = UCT3_ISSUE_KEYS - {"issueType"}
+UCT3_SEVERITY = {"CRITICAL": "error", "ERROR": "error", "WARNING": "warning"}
+
+
+def _uct3_pattern(template):
+    # The optional trailing deprecation text is untrusted free text: it is matched but never stored.
+    parts = re.escape(template).split("%s")
+    fills = (f"({UCT3_SYMBOL})", rf"(?:{VERSION.pattern})", r"[ -~]{0,300}")
+    return re.compile("".join(part + (fills[i] if i < len(parts) - 1 else "")
+                              for i, part in enumerate(parts)), re.ASCII)
+
+
+UCT3_PATTERNS = {code: _uct3_pattern(template) for code, template in UCT3_TEMPLATES.items()}
+
+
+def uct3_row_valid(row):
+    try:
+        return (row["type"] == UCT3_TYPE and row["code"] in {str(code) for code in UCT3_TEMPLATES}
+                and re.fullmatch(UCT3_SYMBOL, row["symbol"], flags=re.ASCII) is not None)
+    except (KeyError, TypeError):
+        return False
+
+
+def uct3_relative(root, name):
+    if not isinstance(name, str) or "\x00" in name:
+        raise ValueError("invalid file name")
+    prefix = str(root) + "/"
+    if name.startswith("/"):
+        if not name.startswith(prefix):
+            raise ValueError("file outside project root")
+        name = name[len(prefix):]
+    return name
+
 
 def escaped(value):
     return (json.dumps(value, ensure_ascii=True, indent=2)
@@ -289,7 +377,71 @@ def write_artifacts(items):
                 failure if failure is not None else cleanup_errors[0])
 
 
+def normalize_uct3(report, root, target_version=None):
+    accepted, quarantine, evidence = [], [], []
+
+    def reject(record, reason, severity):
+        item = {"id": len(accepted) + len(quarantine) + 1,
+                "reason": reason, "severity": severity, "status": "human-review-blocker"}
+        quarantine.append(item)
+        evidence.append({**item, "untrusted_evidence": record})
+
+    stats = report["stats"]
+    issues = report["issues"]
+    if not isinstance(stats, dict):
+        reject(stats, "unsupported-report-schema", "unknown")
+        stats = {}
+    policy = load_source_policy()
+    if not isinstance(issues, list):
+        reject(issues, "invalid-issue-collection", "unknown")
+        issues = []
+    for row in issues:
+        severity = "unknown"
+        try:
+            if (not isinstance(row, dict) or not set(row) <= UCT3_ISSUE_KEYS
+                    or not UCT3_REQUIRED_KEYS <= set(row)):
+                raise ValueError("unsupported issue schema")
+            severity = UCT3_SEVERITY.get(row["level"]) if isinstance(row["level"], str) else None
+            if severity is None or row["validationType"] != "php":
+                raise ValueError("unsupported level or validation type")
+            if type(row["code"]) is not int or row["code"] not in UCT3_PATTERNS:
+                raise ValueError("unsupported code")
+            if type(row["lineNumber"]) is not int or row["lineNumber"] <= 0:
+                raise ValueError("invalid positive line number")
+            if not isinstance(row["message"], str) or len(row["message"]) > 1000:
+                raise ValueError("invalid diagnostic")
+            match = UCT3_PATTERNS[row["code"]].fullmatch(row["message"])
+            if match is None:
+                raise ValueError("unrecognized diagnostic")
+            relative = uct3_relative(root, row["fileName"])
+            _source_file(root, relative, policy)
+            accepted.append({
+                "id": len(accepted) + len(quarantine) + 1,
+                "file": relative, "line": row["lineNumber"],
+                "code": str(row["code"]), "type": UCT3_TYPE,
+                "symbol": match[1], "severity": severity,
+            })
+        except (ValueError, OSError, RecursionError):
+            reject(row, "invalid-path-line-or-diagnostic", severity if severity in ("error", "warning") else "unknown")
+    stats_target = stats.get("targetVersion")
+    target = target_version if target_version is not None else stats_target
+    if target_version is not None and stats_target is not None and stats_target != target_version:
+        reject(stats_target, "conflicting-target-version", "unknown")
+    if not isinstance(target, str) or not VERSION.fullmatch(target):
+        reject(target, "invalid-target-version", "unknown")
+        target = None
+    return {
+        "normalizerVersion": 1, "targetVersion": target,
+        "accepted": accepted, "quarantine": quarantine,
+        "counts": {"accepted": len(accepted), "quarantined": len(quarantine),
+                   "total": len(accepted) + len(quarantine)},
+        "blocked": bool(quarantine),
+    }, evidence
+
+
 def normalize(report, root, target_version=None):
+    if isinstance(report, dict) and set(report) == {"issues", "stats"}:
+        return normalize_uct3(report, root, target_version)
     accepted, quarantine, evidence = [], [], []
 
     def reject(record, reason, severity):
@@ -381,6 +533,8 @@ def main():
                       if isinstance(report, dict) and isinstance(report.get(collection), list)
                       else None for name, collection in
                       (("rawErrorCount", "errors"), ("rawWarningCount", "warnings"))}
+        if isinstance(report, dict) and "issues" in report:
+            raw_counts = {"rawIssueCount": len(report["issues"]) if isinstance(report["issues"], list) else None}
         print(escaped({**result["counts"], **raw_counts}))
         return 2 if result["blocked"] else 0
     except (ValueError, OSError):
