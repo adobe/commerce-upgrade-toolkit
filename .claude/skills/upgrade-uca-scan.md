@@ -96,8 +96,10 @@ and exact message match a single-symbol class/interface/constant/method/property
 catalogue (`UCT3_TEMPLATES`); absolute `fileName` values must sit inside the project root. `CRITICAL` and
 `ERROR` map to `error`, `WARNING` to `warning`. Everything else (DB schema, core-file, PHPCompatibility
 and multi-symbol codes, unknown fields, out-of-root paths) is quarantined as a human-review blocker.
-On a git-checkout project, scan with `--ignore-current-version-compatibility-issues` so baseline noise
-from a branch newer than the release is not counted as findings. Keep the raw report untouched.
+Scan with `--ignore-current-version-compatibility-issues` whenever the selected executable's reviewed
+help lists it (see `uct-install` Step 5): UCT then drops issues common to the current and coming
+version, so baseline noise (including a git-checkout branch newer than the release) is not counted
+as findings and no separate baseline scan is needed. Keep the raw report untouched.
 The approved orchestrator passes the validated resolved target, including on cached scans:
 
 ```bash

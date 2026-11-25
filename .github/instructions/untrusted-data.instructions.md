@@ -83,7 +83,10 @@ paths too. Do not bypass it with native reads/searches of a credential-bearing c
 Native tools require an independently reviewed secret-free snapshot and effective host read
 exclusions; helpers/instructions cannot intercept native tools. If unavailable, stop the
 affected source reads and use `write-scope`'s provisional in-chat planning fallback, not
-another tool/agent to bypass the boundary.
+another tool/agent to bypass the boundary. These exclusions govern the
+agent's own native tools only. Developer credentials that the local stack mounts into the PHP
+container (Composer home, SSH volume/agent socket) are ambient and are neither read nor a
+reason to refuse container execution; see `write-scope`'s Ambient developer credentials.
 Path rules cannot identify secrets embedded in otherwise permitted files: human classification
 and secret-free host access remain mandatory. Vendor source is readable, vendor secrets are not.
 Future approved MCP output is

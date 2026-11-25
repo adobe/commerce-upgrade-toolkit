@@ -415,6 +415,28 @@ No always-green pseudo-audit is provided. AMES/Morpheus remain pending. An Adobe
 requires owner approval and repository access; neither is assumed. Fail closed until these
 requirements are supplied and independently approved.
 
+## Ambient developer credentials (Warden/Docker stacks)
+
+Warden mounts the host `~/.composer` (Composer `auth.json`) at `/home/www-data/.composer`, a named
+`sshdirectory` volume at `/home/www-data/.ssh` and a forwarded SSH agent socket
+(`/run/host-services/ssh-auth.sock`) into `php-fpm`/`php-debug` by default
+(`environments/includes/php-fpm.base.yml`); markshust and DDEV have equivalents. They are
+developer-tooling credentials, not production credentials, and the workflows must not stop or ask
+for them to be removed.
+
+| Allowed | Never |
+|---|---|
+| Name the mounts in the single approval; run approved container commands | Read, list, stat, grep, copy or print the mounts, `auth.json`, keys, tokens or env dumps |
+| `composer_probe.py` fixed read-only `outdated`/`show` queries using the keys implicitly | `composer config`/`auth`, install/update/require, `ssh`/`ssh-add`, `git` to remotes, Cloud CLIs |
+| Report probe failures by kind (`authentication`, `network`, ...) | Open `auth.json` to diagnose; guess `COMPOSER_AUTH`; pass env/volume/user/shell args via the prefix |
+
+Residual risk: code run in the container (UCT, PHPCS, PHPUnit, DI compile, Composer plugins on
+the human's own runs) can technically reach these mounts, and the forwarded SSH agent can reach
+whatever the developer's keys reach. This is why routine scope is exact and approved rather than
+a blanket shell, why the helper passes `--no-plugins --no-scripts`, and why the attestation must
+hold: use a local/dev instance and keep production-capable keys out of the agent forwarded to it.
+Hosts that cannot accept that risk should use the human-run runbook instead of the Warden default.
+
 ## Encryption and critical configuration
 
 Passwords are one-way hashes and independent of the two-way crypt key. Neither a version

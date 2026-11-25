@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath, satisfies, customModuleEvidence, patchEvidence, uctPrerequisite } from '../.claude/scripts/assess_tools.mjs'
+import { diffUct, classifyPatch, suggestComplexity, rollup, validate, isSensitivePath, satisfies, customModuleEvidence, patchEvidence, uctPrerequisite, nextSteps } from '../.claude/scripts/assess_tools.mjs'
 
 const f = (over = {}) => ({ code: 'MC-1', type: 'critical', file: 'a.php', line: 1,
   symbol: 'Magento\\Example\\Model::removedMethod', message: 'removed', ...over })
@@ -50,6 +50,11 @@ test('missing, declined and failed UCT require an explicit incomplete-report dec
   assert.equal(uctPrerequisite().status, 'missing', 'unrun probes do not prove availability')
   assert.equal(uctPrerequisite({ standaloneExitCode: 0, installationOutcome: 'completed' }).status,
     'available', 'human installation must be reverified')
+  const external = uctPrerequisite({ inProjectExitCode: 1, standaloneExitCode: 255, externalRunnerExitCode: 0 })
+  assert.equal(external.mode, 'external-runner')
+  assert.equal(external.scanAllowed, true)
+  assert.equal(uctPrerequisite({ inProjectExitCode: 0, externalRunnerExitCode: 0 }).mode, 'in-project')
+  assert.throws(() => uctPrerequisite({ externalRunnerExitCode: '0' }), /exit codes/)
   assert.throws(() => uctPrerequisite({ inProjectExitCode: true }), /exit codes/)
   assert.throws(() => uctPrerequisite({ composerExitCode: '0' }), /exit codes/)
   assert.throws(() => uctPrerequisite({ continueIncomplete: 'yes' }), /incomplete-report decision/)
@@ -212,6 +217,23 @@ test('assessed UCT requires both scans and retains quarantine evidence gaps', ()
   assert.match(validate(d).join('\n'), /requires both run references/)
 });
 
+test('single-scan UCT mode needs only a target run and rejects a baseline reference', () => {
+  const d = doc()
+  d.complexity.small = 0
+  d.sections.commerceCompatibility = {
+    status: 'assessed', scanMode: 'ignore-current-flag', baselineRun: null,
+    targetRun: 'target-normalized.json', differentialRows: [], quarantineCount: 0
+  }
+  assert.deepEqual(validate(d), [])
+  d.sections.commerceCompatibility.baselineRun = 'baseline-normalized.json'
+  assert.match(validate(d).join('\n'), /ignore-current-flag mode requires a null baselineRun/)
+  d.sections.commerceCompatibility.baselineRun = null
+  d.sections.commerceCompatibility.targetRun = null
+  assert.match(validate(d).join('\n'), /ignore-current-flag mode requires/)
+  d.sections.commerceCompatibility.scanMode = 'guess'
+  assert.match(validate(d).join('\n'), /scanMode must be one of/)
+});
+
 test('both agent flavors gate scan reports without adding UCT to roadmap planning', () => {
   const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
   for (const prefix of ['.claude', '.github']) {
@@ -297,4 +319,59 @@ test('patchEvidence drops catalog patches whose range excludes the target and ke
   assert.equal(hot.verdict, 'REVIEW')
   assert.match(hot.appliesToTarget, /Dry-run required/)
   assert.match(hot.targetPackage, /acme\/mod/)
+})
+
+test('next-steps reports stale files, unset choices and UCT state, and only proposes actions', () => {
+  const root = mkdtempSync(join(tmpdir(), 'next-steps-'))
+  const home = mkdtempSync(join(tmpdir(), 'next-steps-home-'))
+  try {
+    const project = join(root, 'shop')
+    mkdirSync(join(project, '.github/context'), { recursive: true })
+    mkdirSync(join(project, 'context'), { recursive: true })
+    mkdirSync(join(project, '.ccua/review'), { recursive: true })
+    writeFileSync(join(project, '.github/context/.ccua-version'), '1.0.10')
+    writeFileSync(join(project, '.github/context/upgrade-state.md'), 'fromVersion: ~\nphase: new\nhopStrategy: ~\n')
+    writeFileSync(join(project, 'context/upgrade-state.md'), 'fromVersion: 2.4.4\n')
+    mkdirSync(join(project, '.github/context/.uct-capture-' + 'a'.repeat(32)))
+    const first = nextSteps(project, { home })
+    assert.equal(first.agent, 'github-copilot')
+    assert.equal(first.next.id, 'cleanup')
+    const status = Object.fromEntries(first.steps.map((s) => [s.id, s.status]))
+    assert.equal(status.plan, 'todo')
+    assert.equal(status['hop-strategy'], 'todo')
+    assert.equal(status.uct, 'todo')
+    assert.match(first.steps.find((s) => s.id === 'uct').action, /Step 3b/)
+    const byId = Object.fromEntries(first.options.map((o) => [o.id, o]))
+    assert.equal(byId.cleanup.mode, 'human')
+    assert.ok(byId.cleanup.humanCommands.some((c) => c === 'mv context/upgrade-state.md /tmp/ccua-old-upgrade-state.md'))
+    assert.ok(byId.cleanup.humanCommands.some((c) => /^rm -rf \.github\/context\/\.uct-capture-a{32}$/.test(c)))
+    assert.equal(byId.plan.mode, 'agent')
+    assert.equal(byId.plan.invoke, 'planning-mode')
+    assert.equal(byId['hop-strategy'].mode, 'decision')
+    assert.equal(byId.uct.invoke, 'uct-prerequisite-probe')
+    assert.ok(!first.options.some((o) => o.mode === 'agent' && o.id === 'cleanup'), 'cleanup is never agent-run')
+
+    mkdirSync(join(home, '.claude/tools/uct-standalone/shop/bin'), { recursive: true })
+    writeFileSync(join(home, '.claude/tools/uct-standalone/shop/bin/uct'), '')
+    assert.match(nextSteps(project, { home }).steps.find((s) => s.id === 'uct').title, /external PHP 8.4 runner/)
+
+    writeFileSync(join(project, '.ccua/review/uct-prerequisite.json'), JSON.stringify({ externalRunnerExitCode: 0 }))
+    rmSync(join(project, 'context'), { recursive: true })
+    rmSync(join(project, '.github/context/.uct-capture-' + 'a'.repeat(32)), { recursive: true })
+    writeFileSync(join(project, '.github/context/upgrade-state.md'),
+      'fromVersion: 2.4.4-p9\ntoVersion: 2.4.9\nimplementationType: luma\nphase: planned\nhopStrategy: single-hop\n')
+    const clean = nextSteps(project, { home })
+    assert.equal(clean.steps.find((s) => s.id === 'cleanup').status, 'done')
+    assert.equal(clean.steps.find((s) => s.id === 'uct').title, 'UCT verified (external-runner)')
+    assert.equal(clean.next.id, 'scan')
+    assert.deepEqual(clean.options.map((o) => o.id), ['scan'])
+    assert.equal(clean.options[0].target, '2.4.9')
+    writeFileSync(join(project, '.github/context/upgrade-findings.json'), '{"issues":[{"fileName": "/app/app/code/A/B.php"}]}')
+    const stale = nextSteps(project, { home })
+    assert.equal(stale.next.id, 'cleanup')
+    assert.ok(stale.options.find((o) => o.id === 'cleanup').humanCommands.some((c) => c.startsWith('rm -f .github/context/upgrade-findings.json')))
+    writeFileSync(join(project, '.github/context/upgrade-findings.json'), '{"issues":[{"fileName": "/Users/x/shop/app/code/A/B.php"}]}')
+    assert.equal(nextSteps(project, { home }).steps.find((s) => s.id === 'cleanup').status, 'done')
+    assert.throws(() => nextSteps(join(root, 'missing')), /flavour/)
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }) }
 })

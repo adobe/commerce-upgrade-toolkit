@@ -69,19 +69,25 @@ Each section writes one object into the assessment data (Section 5). Every table
   exact human-run command to the runbook.
 - Output rows: severity, module, file:line, rule id, short escaped message, complexity.
 
-### 3.2 Adobe Commerce (UCT) compatibility — differential scan
+### 3.2 Adobe Commerce (UCT) compatibility — single scan with current-version issues ignored
 
 - Apply `uct-install`'s **Assessment prerequisite** first. Installation is human-run;
   cached modes must be reverified live. If UCT is unavailable and an incomplete assessment
-  was explicitly chosen, skip both scans and differential computation: mark **Not assessed**
+  was explicitly chosen, skip the scan and differential computation: mark **Not assessed**
   with null run/count evidence, a stated reason and follow-up in `gaps`.
-- Run UCT **twice** with `--min-issue-level=critical` through the `uct-install` and
-  `upgrade-uca-scan` procedures: once with `--coming-version=<currentVersion>` (baseline)
-  and once with `--coming-version=<targetVersion>`.
-- Report only findings present in the target run and absent in the baseline run
-  (compare on normalized `code` + `file` + symbol, never on free text). This removes false
-  positives from version-guarded code and from plugins on classes that exist only in old
-  versions.
+- Preferred (`scanMode: ignore-current-flag`): run UCT **once** with
+  `--current-version=<currentVersion> --coming-version=<targetVersion>
+  --ignore-current-version-compatibility-issues --min-issue-level=critical` through the
+  `uct-install` and `upgrade-uca-scan` procedures. UCT itself drops issues common to the
+  current and coming version (version-guarded code, plugins on classes that exist only in old
+  versions), so the normalized target run already is the differential: `baselineRun` is `null`
+  and the run is reported as `targetRun`. Use it only when the selected executable's reviewed
+  `help upgrade:check` lists the flag.
+- Fallback (`scanMode: baseline-target-diff`), only when the flag is unavailable: run UCT twice,
+  once with `--coming-version=<currentVersion>` (baseline) and once with
+  `--coming-version=<targetVersion>`, and report only findings present in the target run and
+  absent in the baseline run (`assess_tools.mjs diff-uct`, compared on normalized `code` + `file`
+  + symbol, never on free text).
 - Report `ERROR` (non-`@api` dependencies) and `WARNING` (deprecated usage) levels only as
   an optional technical-debt appendix, never as upgrade blockers or complexity drivers.
 - Quarantined/unknown UCT records remain counted, visible human-review blockers.
@@ -132,7 +138,9 @@ report's Domain, Purpose, PHP and Evidence columns; an open-ended constraint suc
 only shows the installed release does not exclude the target PHP, not that the vendor tested
 it. Packages that cannot be evaluated stay `REVIEW`/`UNKNOWN` and are listed for client
 or vendor confirmation (never "Not assessed" without a stated reason). Then apply
-`marketplace-extension-analysis` for release-level compatibility evidence, and assign exactly
+`marketplace-extension-analysis` for release-level compatibility evidence (its Step 1b runs
+`composer_probe.py` inside the verified container to find newer releases, using the container's
+ambient Composer keys without reading them; a failed probe leaves the package `UNKNOWN`), and assign exactly
 one decision per package:
 
 | Decision | Meaning |
@@ -251,7 +259,8 @@ Apply these in addition to 3.1–3.9; they come from the PS assessment template.
   a human-run proposal, not a write. Classify PHP findings as deprecated (for example
   `utf8_encode()`, dynamic properties, nullable arguments to internal functions).
 - **UCT (3.2):** use `uct-install` Step 5's safe capture invocation for the live-verified
-  executable, with baseline and target versions and `--min-issue-level=critical`. In file
+  executable, with the current and target versions, the ignore-current-version flag (or the
+  baseline/target fallback) and `--min-issue-level=critical`. In file
   mode, only the helper's private `--json-output-path={uct-report}` placeholder is permitted;
   never direct UCT to a final audit path. Use typed arguments only.
   Include DB schema findings (`dbschema:diff`, module declarations
@@ -306,7 +315,9 @@ only):
   "sections": {
     "phpCompatibility": { "targetPhp": "...", "status": "assessed|not-assessed", "rows": [] },
     "commerceCompatibility": { "status": "assessed|not-assessed", "reason": "...",
-                               "baselineRun": "...", "targetRun": "...", "differentialRows": [],
+                               "scanMode": "ignore-current-flag|baseline-target-diff",
+                               "baselineRun": "... (null in ignore-current-flag mode)",
+                               "targetRun": "...", "differentialRows": [],
                                "debtCategories": [], "quarantineCount": 0 },
     "services": { "sources": [{ "url": "...", "retrieved": "...", "sha256": "..." }], "rows": [] },
     "core": { "considerations": [], "methodology": [] },
@@ -322,10 +333,10 @@ only):
 ```
 
 `gaps` lists every `NOT ASSESSED`/`UNKNOWN`/`BLOCKED` item and why; the report must show it.
-For `commerceCompatibility.status: not-assessed`, both run references and `quarantineCount`
+For `commerceCompatibility.status: not-assessed`, `scanMode`, both run references and `quarantineCount`
 must be `null`, differential/debt rows empty, and `reason`/UCT `gaps` non-empty. Null is
-unavailable evidence, not a zero or cleared quarantine. `assessed` requires verified baseline
-and target run references and actual normalized counts; positive quarantine counts retain gaps.
+unavailable evidence, not a zero or cleared quarantine. `assessed` requires a verified target run
+reference (plus a baseline reference in `baseline-target-diff` mode) and actual normalized counts; positive quarantine counts retain gaps.
 
 Read-only helper (routine scope, dependency-free, no network): `node .claude/scripts/assess_tools.mjs`
 - `diff-uct <baseline.json> <target.json>` compares normalized accepted finding arrays by

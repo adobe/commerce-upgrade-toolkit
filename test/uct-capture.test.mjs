@@ -179,3 +179,24 @@ test('capture helpers mirror exactly and all workflow/report callers avoid raw-i
     assert.doesNotMatch(read(skill('upgrade-hop-report')), /from `context\/upgrade-findings\.json`|entry from context\/upgrade-findings\.json/);
   }
 });
+
+test('UCT 3.x quarantine reasons say why a record was rejected and stay human-review blockers', () => fixture(dir => {
+  mkdirSync(join(dir, 'app/code/Vendor/Module'), { recursive: true });
+  const file = join(dir, 'app/code/Vendor/Module/Fix.php');
+  const issue = (code, fileName, message) => ({ code, fileName, lineNumber: 3, level: 'WARNING', validationType: 'php', message });
+  const raw = { stats: {}, issues: [
+    issue(1440, file, 'Method "A::b" expects parameter 1 ("t") of type "class-string<T>", received "string" instead'),
+    issue(1439, '/app/app/code/Vendor/Module/Fix.php', "Call method 'A::b' that is @deprecated on version '2.4.9' "),
+    issue(9999, file, 'anything'),
+    issue(1439, file, 'not the template')] };
+  writeFileSync(join(dir, '.github/context/upgrade-findings.json'), JSON.stringify(raw));
+  const result = python(dir, '.github/scripts/normalize_uct.py', ['.github/context/upgrade-findings.json',
+    '.github/context/upgrade-findings.normalized.json', '.github/context/upgrade-findings.quarantine.json',
+    '--project-root', '.', '--target-version', '2.4.9']);
+  assert.equal(result.status, 2, result.stderr);
+  const quarantine = JSON.parse(readFileSync(join(dir, '.github/context/upgrade-findings.quarantine.json'), 'utf8'));
+  const rows = Array.isArray(quarantine) ? quarantine : quarantine.quarantined || quarantine.records;
+  assert.deepEqual(rows.map(row => row.reason),
+    ['unsupported-code', 'path-outside-project-root', 'unsupported-code', 'message-does-not-match-template']);
+  assert.ok(rows.every(row => row.status === 'human-review-blocker'));
+}));
