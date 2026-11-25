@@ -674,14 +674,20 @@ export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
   const listDir = (dir) => { try { return readdirSync(dir, { withFileTypes: true }) } catch { return [] } }
 
   const strayState = safeFile(join(root, 'context', 'upgrade-state.md')) !== null
+  // A raw report whose file names start with /app was produced by the old external-runner mount
+  // and would be quarantined wholesale; it must be re-captured, not normalized again.
+  const rawReport = safeFile(join(contextDir, 'upgrade-findings.json'), 64 * 1024 * 1024)
+  const staleRaw = rawReport !== null && /"fileName"\s*:\s*"\/app\//.test(rawReport)
   const leftovers = listDir(contextDir)
     .filter((e) => e.isDirectory() && !e.isSymbolicLink() && /^\.uct-capture-[0-9a-f]{32}$/.test(e.name))
     .map((e) => `${base}/context/${e.name}`)
-  if (strayState || leftovers.length) {
+  if (strayState || leftovers.length || staleRaw) {
     const items = [...(strayState ? ['context/upgrade-state.md (a second, stale state file; only ' + base + '/context/upgrade-state.md is used)'] : []),
-      ...leftovers.map((p) => `${p}/ (unfinished or failed scan capture)`)]
+      ...leftovers.map((p) => `${p}/ (unfinished or failed scan capture)`),
+      ...(staleRaw ? [`${base}/context/upgrade-findings*.json and .toon (raw report with /app paths from the old runner mount; re-scan)`] : [])]
     const commands = [...(strayState ? ['mv context/upgrade-state.md /tmp/ccua-old-upgrade-state.md', 'rmdir context'] : []),
-      ...leftovers.map((p) => `rm -rf ${p}`)]
+      ...leftovers.map((p) => `rm -rf ${p}`),
+      ...(staleRaw ? [`rm -f ${base}/context/upgrade-findings.json ${base}/context/upgrade-findings.normalized.json ${base}/context/upgrade-findings.quarantine.json ${base}/context/upgrade-findings.toon`] : [])]
     add('cleanup', 'todo', 'Remove stale files from an earlier run',
       'Review, then move or delete these yourself so they are not mistaken for current evidence: ' + items.join('; '),
       { mode: 'human', invoke: 'show-cleanup-commands', label: 'Show me the cleanup commands (I run them)', humanCommands: commands })

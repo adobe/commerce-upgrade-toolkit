@@ -21,11 +21,26 @@ confirmed by one user attestation in that same approval. The same approval state
 developer credentials the container exposes (below) so the user attests knowingly; it is still
 one confirmation. The user's statement is sufficient; do not
 require separate disposable infrastructure or independent host proof, and ask only one confirmation.
+**Required approval wording.** Host reviewers check that the approval actually names these, so
+present them as ONE structured confirmation (never a bare "proceed?" and never split across
+prompts) with every item filled from live detection, not placeholders:
+1. the exact instance: project path, container name and `containerPrefix`/runner, hosting profile;
+2. the version pair (and hop plan, if one exists);
+3. the routine commands about to run, listed individually (for example the `next-steps` helper,
+   `bin/magento --version`, the UCT probe/scan, normalization, `composer_probe.py`);
+4. the ambient developer mounts the environment reports (for example Warden's host `~/.composer`,
+   the SSH volume, `ssh-auth.sock`), with the statement that they will not be read;
+5. the attestation: local/dev non-production, no production credentials or access;
+6. the files this run will write (state/report metadata).
+Run each routine command as its own single command, not chained with `;`, `&&` or extra
+`ls`/`cat`, so each matches an approved item. Do not run ANY project command, including the
+status helper, until this approval has been given in the current session.
+
 After that approval, automatically execute only the authorized routine steps; do not request
 the same routine authorization before each command or remain in read-only proposal mode.
 `commerce-upgrade-researcher`, architect, frontend and security reviewer remain read-only.
 
-Routine scope: reviewed non-secret version/service discovery; already-installed UCT capture
+Routine scope: the read-only `assess_tools.mjs next-steps` status helper; reviewed non-secret version/service discovery; already-installed UCT capture
 and scanning; read-only Composer metadata lookups through `composer_probe.py` (see Ambient
 developer credentials below); normalization/TOON; controlled source/URL helpers; scoped state/report updates;
 review/verify/audit checks; PHPCS/PHPUnit and DI compile against already approved code.

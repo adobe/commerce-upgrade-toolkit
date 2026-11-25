@@ -32,9 +32,11 @@ Usage: `/upgrade-assess <targetVersion>` — the target must match
 
 ## Step 0: Approval and environment
 
-1. Obtain the single live approval described in `write-scope.md`: exact project path and
+1. Obtain the single live approval described in `write-scope.md` (use its "Required approval
+   wording" so the instance, version pair, individual commands, ambient mounts, attestation and
+   files are all named in that one confirmation): exact project path and
    container prefix, the version pair, hosting profile, the routine commands below
-   (PHPCompatibility/PHPStan, one UCT scan with `--ignore-current-version-compatibility-issues`
+   (the `next-steps` status helper, PHPCompatibility/PHPStan, one UCT scan with `--ignore-current-version-compatibility-issues`
    or, when unsupported, baseline and target scans, read-only `composer_probe.py` metadata
    lookups for third-party packages, normalization, controlled URL helper, read-only source
    helper) and the metadata files this command will write. The user attests the instance is

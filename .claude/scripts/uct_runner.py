@@ -7,8 +7,9 @@
 
 UCT 3.x needs PHP 8.4+, which the project's own container may not have. UCT analyses source
 statically, so it can run elsewhere: this helper builds a fixed `docker run` argv, with no
-network, no credential mounts, the project mounted read-only and only the capture context
-directory writable, then executes it. Use it as the command argv for `capture_uct.py`.
+network, no credential mounts, the project mounted read-only at its own host path (so UCT's
+reported file names are host paths the normalizer accepts, with no path remapping) and only the
+capture context directory writable, then executes it. Use it as the command argv for `capture_uct.py`.
 """
 import argparse
 import os
@@ -38,6 +39,8 @@ def reject(message):
 def clean_directory(value, label):
     if not value or not os.path.isabs(value) or os.path.islink(value) or not os.path.isdir(value):
         reject(label + " must be an existing absolute non-symlink directory")
+    if re.search(r"[:,\s]", value):
+        reject(label + " must not contain ':', ',' or whitespace (Docker mount syntax)")
     real = os.path.realpath(value)
     if real != os.path.abspath(value):
         reject(label + " must not contain symbolic links")
@@ -113,11 +116,11 @@ def main():
         command = ["docker", "run", "--rm", "--network", "none", "--cap-drop", "ALL",
                    "--security-opt", "no-new-privileges", "--read-only", "--tmpfs", "/tmp",
                    "--memory", args.memory, "--user", "%d:%d" % (os.getuid(), os.getgid()),
-                   "-e", "HOME=/tmp", "-v", uct + ":/uct:ro", "-v", root + ":/app:ro"]
+                   "-e", "HOME=/tmp", "-v", uct + ":/uct:ro", "-v", root + ":" + root + ":ro"]
         if context:
-            command += ["-v", context + ":/app/" + args.context_dir]
+            command += ["-v", context + ":" + context]
         # UCT writes an HTML report under its own var/ even when none is requested.
-        command += ["--tmpfs", "/uct/var:rw,mode=1777", "-w", "/app", args.image,
+        command += ["--tmpfs", "/uct/var:rw,mode=1777", "-w", root, args.image,
                     "php", "-d", "memory_limit=-1", "/uct/bin/uct"] + uct_args
         environment = {name: os.environ[name] for name in ENV_ALLOW if name in os.environ}
         timeout = max(1, min(args.timeout_seconds, 14400))

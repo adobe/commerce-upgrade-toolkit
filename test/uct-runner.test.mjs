@@ -41,10 +41,13 @@ test('runner builds a hardened docker argv with a read-only project and writable
   assert.equal(result.status, 0, result.stderr);
   const text = argv.join(' ');
   for (const flag of ['--network none', '--cap-drop ALL', 'no-new-privileges', '--read-only']) assert.ok(text.includes(flag), flag);
-  assert.ok(argv.includes(`${project}:/app:ro`));
+  assert.ok(argv.includes(`${project}:${project}:ro`), 'project is mounted read-only at its host path');
+  assert.equal(argv[argv.indexOf('-w') + 1], project);
   assert.ok(argv.includes(`${uct}:/uct:ro`));
-  assert.ok(argv.includes(`${project}/.github/context:/app/.github/context`));
-  assert.equal(argv.filter(arg => arg.includes(':/app')).length, 2, 'only project (ro) and context are mounted under /app');
+  assert.ok(argv.includes(`${project}/.github/context:${project}/.github/context`));
+  assert.equal(argv.filter(arg => arg.startsWith(`${project}`) && arg.includes(':')).length, 2,
+    'only the read-only project and the context directory are mounted from the project');
+  assert.ok(!text.includes(':/app'), 'no /app remapping');
   assert.doesNotMatch(text, /\.composer|\.ssh|auth\.json|COMPOSER_AUTH/);
   assert.ok(!readFileSync(join(dir, 'env.txt'), 'utf8').includes('COMPOSER_AUTH'), 'credential env not forwarded');
   assert.equal(argv[argv.indexOf('ccua-uct-runner:php8.4') + 1], 'php');
@@ -71,7 +74,7 @@ test('runner defaults the image and finds UCT under ~/.claude/tools/uct-standalo
 test('runner version probe mounts no writable context', () => fixture(({ project, uct, call }) => {
   const { result, argv } = call(['--image', 'ccua-uct-runner:php8.4', '--uct-path', uct, '--', '--version']);
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(!argv.some(arg => arg.includes('/app/.github/context')));
+  assert.ok(!argv.some(arg => arg === `${project}/.github/context:${project}/.github/context`));
 }));
 
 test('runner rejects unsafe images, paths and UCT arguments before launching docker', () => fixture(({ project, uct, call, dir }) => {

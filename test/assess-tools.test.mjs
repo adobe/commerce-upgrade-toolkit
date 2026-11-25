@@ -366,6 +366,12 @@ test('next-steps reports stale files, unset choices and UCT state, and only prop
     assert.equal(clean.next.id, 'scan')
     assert.deepEqual(clean.options.map((o) => o.id), ['scan'])
     assert.equal(clean.options[0].target, '2.4.9')
+    writeFileSync(join(project, '.github/context/upgrade-findings.json'), '{"issues":[{"fileName": "/app/app/code/A/B.php"}]}')
+    const stale = nextSteps(project, { home })
+    assert.equal(stale.next.id, 'cleanup')
+    assert.ok(stale.options.find((o) => o.id === 'cleanup').humanCommands.some((c) => c.startsWith('rm -f .github/context/upgrade-findings.json')))
+    writeFileSync(join(project, '.github/context/upgrade-findings.json'), '{"issues":[{"fileName": "/Users/x/shop/app/code/A/B.php"}]}')
+    assert.equal(nextSteps(project, { home }).steps.find((s) => s.id === 'cleanup').status, 'done')
     assert.throws(() => nextSteps(join(root, 'missing')), /flavour/)
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }) }
 })

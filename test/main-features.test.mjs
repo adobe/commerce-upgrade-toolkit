@@ -465,3 +465,21 @@ test('guided next steps is a user selection that acts on the choice without gran
     assert.match(read(assess), /What would you like to do\s+now\?/)
   }
 })
+
+test('write-scope defines the single approval wording and both commands point to it', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const [scope, hop, assess] of [
+    ['.claude/guardrails/write-scope.md', '.claude/commands/upgrade-hop.md', '.claude/commands/upgrade-assess.md'],
+    ['.github/instructions/write-scope.instructions.md', '.github/skills/upgrade-hop/SKILL.md', '.github/skills/upgrade-assess/SKILL.md']]) {
+    const text = read(scope)
+    assert.match(text, /Required approval wording/)
+    for (const item of ['exact instance', 'version pair', 'routine commands', 'ambient developer mounts', 'local/dev non-production', 'files this run will write']) {
+      assert.ok(text.includes(item), item)
+    }
+    assert.match(text, /not chained with/)
+    assert.match(text, /status helper, until this approval/)
+    assert.match(text, /`assess_tools\.mjs next-steps` status helper/)
+    assert.match(read(hop), /Required approval wording/)
+    assert.match(read(assess), /Required approval\s+wording/)
+  }
+})
