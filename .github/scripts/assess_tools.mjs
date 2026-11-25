@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 //   node assess_tools.mjs rollup   <upgrade-assessment.json>
 //   node assess_tools.mjs validate <upgrade-assessment.json>
 //   node assess_tools.mjs uct-prerequisite <live-probe-results.json>
+//   node assess_tools.mjs next-steps <projectDir> [--agent claude-code|github-copilot] [--text]
 //   node assess_tools.mjs patches <projectDir> --target <X.Y.Z>
 //   node assess_tools.mjs custom-modules <projectDir>
 //   node assess_tools.mjs third-party <projectDir> [--php 8.5.0] [--assessment <upgrade-assessment.json>]
@@ -27,13 +28,15 @@ SPDX-License-Identifier: Apache-2.0
 // Exit codes: 0 = ok, 1 = validation errors or unreadable input, 2 = bad usage.
 
 import { readFileSync, statSync, lstatSync, realpathSync, readdirSync, existsSync } from 'node:fs'
-import { join, sep } from 'node:path'
+import { join, sep, basename, resolve } from 'node:path'
+import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
 const MAX_BYTES = 64 * 1024 * 1024
 export const LEVELS = ['Small', 'Medium', 'High', 'UNKNOWN']
 const PATCH_ACTIONS = ['REVIEW', 'DROP', 'KEEP_AND_REBASE', 'REWORK', 'REPLACE_WITH_VENDOR_RELEASE', 'UPGRADE_PACKAGE']
 const MODULE_DECISIONS = ['KEEP', 'UPGRADE_MINOR', 'UPGRADE_MAJOR', 'REPLACE', 'REMOVE', 'BLOCKED', 'REVIEW']
+const SCAN_MODES = ['ignore-current-flag', 'baseline-target-diff']
 const SECTIONS = ['phpCompatibility', 'commerceCompatibility', 'services', 'core', 'thirdParty',
   'customModules', 'patches', 'composer', 'delivery']
 const FORBIDDEN_KEYS = /^(effort|effortPoints|points|hours|days|sprints?|velocity|cost|duration|weeks?)$/i
@@ -120,9 +123,9 @@ export function isSensitivePath(file) {
 }
 
 export function uctPrerequisite({ inProjectExitCode = null, composerExitCode = null,
-  standaloneExitCode = null, probeFailure = 'missing',
+  standaloneExitCode = null, externalRunnerExitCode = null, probeFailure = 'missing',
   installationOutcome = 'not-attempted', continueIncomplete = false } = {}) {
-  for (const code of [inProjectExitCode, composerExitCode, standaloneExitCode]) {
+  for (const code of [inProjectExitCode, composerExitCode, standaloneExitCode, externalRunnerExitCode]) {
     if (code !== null && (!Number.isInteger(code) || code < 0 || code > 255)) {
       throw new Error('UCT probe exit codes must be null or integers from 0 to 255')
     }
@@ -134,7 +137,8 @@ export function uctPrerequisite({ inProjectExitCode = null, composerExitCode = n
   }
   const mode = inProjectExitCode === 0 ? 'in-project'
     : composerExitCode === 0 ? 'composer'
-    : standaloneExitCode === 0 ? 'standalone-fallback' : null
+    : standaloneExitCode === 0 ? 'standalone-fallback'
+    : externalRunnerExitCode === 0 ? 'external-runner' : null
   if (mode) {
     return { status: 'available', mode, scanAllowed: true, incompleteReportAllowed: false,
       reason: 'UCT prerequisite verified; scan and normalization results are still required' }
@@ -197,6 +201,7 @@ export function validate(data) {
         errors.push('commerceCompatibility.reason is required when UCT is Not assessed')
       }
       if (commerce.baselineRun !== null || commerce.targetRun !== null ||
+          (commerce.scanMode !== undefined && commerce.scanMode !== null) ||
           commerce.quarantineCount !== null || !Array.isArray(commerce.differentialRows) ||
           commerce.differentialRows.length !== 0 || !Array.isArray(commerce.debtCategories) ||
           commerce.debtCategories.length !== 0) {
@@ -205,10 +210,18 @@ export function validate(data) {
       if (!Array.isArray(data.gaps) || data.gaps.length === 0) {
         errors.push('UCT is Not assessed but gaps is empty')
       }
-    } else if (typeof commerce.baselineRun !== 'string' || !commerce.baselineRun.trim() ||
+    } else if (commerce.scanMode !== undefined && !SCAN_MODES.includes(commerce.scanMode)) {
+      errors.push(`commerceCompatibility.scanMode must be one of ${SCAN_MODES.join(', ')}`)
+    } else if (commerce.scanMode === 'ignore-current-flag' &&
+               (commerce.baselineRun !== null || typeof commerce.targetRun !== 'string' || !commerce.targetRun.trim() ||
+                !Number.isInteger(commerce.quarantineCount) || commerce.quarantineCount < 0 ||
+                !Array.isArray(commerce.differentialRows))) {
+      errors.push('Assessed UCT in ignore-current-flag mode requires a null baselineRun, a target run reference, differential rows and a verified quarantine count')
+    } else if (commerce.scanMode !== 'ignore-current-flag' &&
+               (typeof commerce.baselineRun !== 'string' || !commerce.baselineRun.trim() ||
                typeof commerce.targetRun !== 'string' || !commerce.targetRun.trim() ||
                !Number.isInteger(commerce.quarantineCount) || commerce.quarantineCount < 0 ||
-               !Array.isArray(commerce.differentialRows)) {
+               !Array.isArray(commerce.differentialRows))) {
       errors.push('Assessed UCT requires both run references, differential rows and a verified quarantine count')
     } else if (commerce.quarantineCount > 0 && (!Array.isArray(data.gaps) || data.gaps.length === 0)) {
       errors.push('UCT quarantine blockers require gaps')
@@ -626,6 +639,91 @@ export function patchEvidence(projectDir, { target }) {
   return { target, cloudPatchesVersion: cloudVersion, summary: { total: rows.length, byVerdict: tally }, rows }
 }
 
+const FLAVOURS = { 'claude-code': '.claude', 'github-copilot': '.github' }
+
+function safeFile(path, max = 1024 * 1024) {
+  try {
+    const st = lstatSync(path)
+    return st.isFile() && !st.isSymbolicLink() && st.size <= max ? readFileSync(path, 'utf8') : null
+  } catch { return null }
+}
+
+function stateField(text, name) {
+  const match = text && new RegExp(`^${name}:[ \\t]*(.*)$`, 'm').exec(text)
+  const value = match ? match[1].trim() : ''
+  return value === '' || value === '~' ? null : value
+}
+
+/**
+ * Read-only guided status: inspects fixed, non-secret project paths and returns ordered next
+ * actions. It never runs commands, probes containers or reads credentials; "todo" items are
+ * proposals for the user or the approved workflow, not permission to execute anything.
+ */
+export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
+  const root = resolve(projectDir)
+  const detected = agent || Object.keys(FLAVOURS).find((name) =>
+    safeFile(join(root, FLAVOURS[name], 'context', '.ccua-version')) !== null)
+  if (!FLAVOURS[detected]) throw new Error('no installed toolkit flavour; pass --agent')
+  const base = FLAVOURS[detected]
+  const contextDir = join(root, base, 'context')
+  const stateText = safeFile(join(contextDir, 'upgrade-state.md'))
+  const steps = []
+  const add = (id, status, title, action) => steps.push({ id, status, title, action })
+  const listDir = (dir) => { try { return readdirSync(dir, { withFileTypes: true }) } catch { return [] } }
+
+  const strayState = safeFile(join(root, 'context', 'upgrade-state.md')) !== null
+  const leftovers = listDir(contextDir)
+    .filter((e) => e.isDirectory() && !e.isSymbolicLink() && /^\.uct-capture-[0-9a-f]{32}$/.test(e.name))
+    .map((e) => `${base}/context/${e.name}`)
+  if (strayState || leftovers.length) {
+    const items = [...(strayState ? ['context/upgrade-state.md (a second, stale state file; only ' + base + '/context/upgrade-state.md is used)'] : []),
+      ...leftovers.map((p) => `${p}/ (unfinished or failed scan capture)`)]
+    add('cleanup', 'todo', 'Remove stale files from an earlier run',
+      'Review, then move or delete these yourself so they are not mistaken for current evidence: ' + items.join('; '))
+  } else add('cleanup', 'done', 'No stale state or unfinished captures found', null)
+
+  const missing = ['fromVersion', 'toVersion', 'implementationType'].filter((n) => !stateField(stateText, n))
+  const planned = stateField(stateText, 'phase') && stateField(stateText, 'phase') !== 'new'
+  if (!stateText) add('state', 'blocked', 'Project state file is missing',
+    `Run the update command so ${base}/context/upgrade-state.md is created from the template.`)
+  else if (!planned) add('plan', 'todo', 'Plan the upgrade path',
+    'Run /upgrade-hop with no argument. Answer the intake, attest the instance is local/dev non-production, and review the hop plan.')
+  else add('plan', 'done', 'Upgrade path planned', null)
+  if (stateText && missing.length) add('facts', 'todo', 'Project facts are unset: ' + missing.join(', '),
+    'They are asked once in /upgrade-hop intake; unknown is accepted.')
+
+  const strategy = stateField(stateText, 'hopStrategy')
+  add('hop-strategy', strategy ? 'done' : 'todo',
+    strategy ? `Hop strategy: ${strategy}` : 'Choose the hop strategy',
+    strategy ? null : 'Chosen by you in the /upgrade-hop planning review: risk-based (recommended), single-hop or every-minor. Until then the plan is provisional.')
+
+  const prereq = safeFile(join(root, '.ccua', 'review', 'uct-prerequisite.json'), 4096)
+  let uct = null
+  try { uct = prereq ? uctPrerequisite(JSON.parse(prereq)) : null } catch { /* invalid record */ }
+  let hostUct = false
+  try { hostUct = lstatSync(join(home, '.claude', 'tools', 'uct-standalone', basename(root), 'bin', 'uct')).isFile() } catch { /* not installed */ }
+  if (uct?.scanAllowed) add('uct', 'done', `UCT verified (${uct.mode})`, null)
+  else if (hostUct) add('uct', 'todo', 'UCT found for the external PHP 8.4 runner; verify it',
+    'The workflow runs: python3 ' + base + '/scripts/uct_runner.py -- --version (needs the ccua-uct-runner:php8.4 Docker image).')
+  else add('uct', 'todo', 'No UCT verified yet',
+    'If the project container runs PHP below 8.4, do the one-time UCT runner setup (uct-install skill, Step 3b); otherwise the workflow probes the in-container UCT.')
+
+  const normalized = safeFile(join(contextDir, 'upgrade-findings.normalized.json'), 64 * 1024 * 1024) !== null
+  if (normalized) add('scan', 'done', 'A normalized UCT report exists', 'Confirm it is for the current version pair; the workflow rechecks this before use.')
+  else add('scan', planned ? 'todo' : 'info', 'Run the UCT scan',
+    'Run /upgrade-hop with a target version, for example /upgrade-hop 2.4.9. One scan per hop; a single-hop plan needs one. It can take 15+ minutes on a large project.')
+
+  const first = steps.find((s) => s.status === 'todo' || s.status === 'blocked') || null
+  return { agent: detected, next: first ? { id: first.id, title: first.title, action: first.action } : null, steps }
+}
+
+function renderSteps(result) {
+  const icon = { done: '[x]', todo: '[ ]', blocked: '[!]', info: '[-]' }
+  const lines = result.steps.map((s) => `${icon[s.status]} ${s.title}${s.action ? '\n      -> ' + s.action : ''}`)
+  return ['Upgrade status and next steps', ...lines,
+    result.next ? `\nNext: ${result.next.title}` : '\nNothing outstanding.'].join('\n')
+}
+
 function main(argv) {
   const [cmd, ...args] = argv
   try {
@@ -639,6 +737,13 @@ function main(argv) {
       return errors.length ? 1 : 0
     } else if (cmd === 'uct-prerequisite' && args.length === 1) {
       console.log(escaped(uctPrerequisite(readJson(args[0]))))
+    } else if (cmd === 'next-steps' && args.length >= 1) {
+      const i = args.indexOf('--agent')
+      const agent = i > 0 ? args[i + 1] : undefined
+      if (agent !== undefined && !FLAVOURS[agent]) throw new Error('bad agent')
+      const result = nextSteps(args[0], { agent })
+      // Text mode prints only fixed strings and regex-validated names (no free text from files).
+      console.log(args.includes('--text') ? renderSteps(result) : escaped(result))
     } else if (cmd === 'patches' && args.length >= 1) {
       const i = args.indexOf('--target')
       const target = i > 0 ? args[i + 1] : undefined
@@ -654,7 +759,7 @@ function main(argv) {
       const packages = assessmentPath ? readJson(assessmentPath).sections.thirdParty.rows.map((r) => r.package) : null
       console.log(escaped(thirdPartyEvidence(args[0], { php: phpOpt, packages })))
     } else {
-      console.error('usage: assess_tools.mjs diff-uct <baseline> <target> | rollup <file> | validate <file> | uct-prerequisite <live-probes.json> | patches <projectDir> --target X.Y.Z | custom-modules <projectDir> | third-party <projectDir> [--php X.Y.Z] [--assessment <file>]')
+      console.error('usage: assess_tools.mjs diff-uct <baseline> <target> | rollup <file> | validate <file> | uct-prerequisite <live-probes.json> | next-steps <projectDir> [--agent A] [--text] | patches <projectDir> --target X.Y.Z | custom-modules <projectDir> | third-party <projectDir> [--php X.Y.Z] [--assessment <file>]')
       return 2
     }
     return 0

@@ -39,9 +39,14 @@ Usage: `/upgrade-assess <targetVersion>` — the target must match
 
 1. Obtain the single live approval described in `write-scope.md`: exact project path and
    container prefix, the version pair, hosting profile, the routine commands below
-   (PHPCompatibility/PHPStan, UCT baseline and target scans, normalization, controlled URL
-   helper, read-only source helper) and the metadata files this command will write. The
-   user attests the instance is local/dev non-production with no production credentials.
+   (PHPCompatibility/PHPStan, one UCT scan with `--ignore-current-version-compatibility-issues`
+   or, when unsupported, baseline and target scans, read-only `composer_probe.py` metadata
+   lookups for third-party packages, normalization, controlled URL helper, read-only source
+   helper) and the metadata files this command will write. The user attests the instance is
+   local/dev non-production with no production credentials. List the ambient developer mounts
+   the environment reports (e.g. Warden's `~/.composer` and SSH volume) in that same approval;
+   they are expected, are never read, and never block or pause execution (`write-scope`,
+   Ambient developer credentials). Do not offer an option to remove them.
    If declined or unknown, do not execute: return a human-run runbook for each blocked step.
 2. Apply `environment-detection` for `dockerType`, `containerPrefix`, PHP and service
    versions, and detect the hosting profile (Cloud vs. on-premises) per
@@ -85,8 +90,9 @@ in-memory assessment data model (Section 5):
    item on an evidence gap; continue independently approved UCT work for the verified
    version pair/environment, without marking platform requirements verified.
 2. 3.1 PHP compatibility
-3. 3.2 Commerce compatibility — with verified UCT, run approved baseline and target
-   scans and normalize both before computing differential rows. Without verified UCT,
+3. 3.2 Commerce compatibility — with verified UCT, run the approved single scan with
+   `--ignore-current-version-compatibility-issues` (or, only when the selected executable's
+   help lacks the flag, the baseline and target pair) and normalize before reporting rows. Without verified UCT,
    skip scans/differential computation and retain **Not assessed**, null counts and gaps.
    Never consume an old scan to disguise a missing or failed prerequisite.
 4. 3.5 Third-party modules, including the modified-vendor diff and client input list
@@ -139,6 +145,9 @@ with the one-line "not proof of production readiness" statement.
 
 ## Step 6: Hand-off
 
+Finish with the **"What to do next"** section described in `upgrade-hop`'s Guided next steps
+(`node .github/scripts/assess_tools.mjs next-steps . --agent github-copilot --text`; Copilot uses
+`.github/scripts/` and `--agent github-copilot`); run it also when this command stops early.
 Print the paths of both documents and the human-run conversion runbook for **PDF** and
 **DOCX** (Section 6 of the skill). Agents do not create binary documents or run converters.
 Mention the toolkit's human-run helper: `node <toolkit>/scripts/export-assessment.mjs --html <report.html> --md <report.md> --out-dir <dir>`

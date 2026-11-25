@@ -432,3 +432,30 @@ test('npm distribution includes every runtime dependency file and workflow asset
   }
   assert.ok(![...files].some((path) => path.includes('.ccua-functional-test-')))
 }))
+
+test('upgrade-hop lets the user choose the hop strategy and records it unset until chosen', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const [command, state] of [['.claude/commands/upgrade-hop.md', '.claude/context/upgrade-state.md'],
+    ['.github/skills/upgrade-hop/SKILL.md', '.github/context/upgrade-state.md']]) {
+    const text = read(command)
+    for (const option of ['`risk-based`', '`single-hop`', '`every-minor`']) assert.ok(text.includes(option), option)
+    assert.match(text, /never choose for the user/)
+    assert.match(text, /a single hop never waives an infrastructure floor/)
+    assert.match(text, /never authorizes execution/)
+    assert.match(read(state), /^hopStrategy: ~$/m)
+  }
+})
+
+test('upgrade-hop and upgrade-assess end every run with guided next steps in both flavours', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const [hop, assess, agent] of [
+    ['.claude/commands/upgrade-hop.md', '.claude/commands/upgrade-assess.md', 'claude-code'],
+    ['.github/skills/upgrade-hop/SKILL.md', '.github/skills/upgrade-assess/SKILL.md', 'github-copilot']]) {
+    const text = read(hop)
+    assert.ok(text.includes(`assess_tools.mjs next-steps . --agent ${agent} --text`))
+    assert.match(text, /LAST thing printed/)
+    assert.match(text, /never runs commands/)
+    assert.match(text, /never delete them yourself/)
+    assert.match(read(assess), /What to do next/)
+  }
+})

@@ -30,6 +30,17 @@ when they have not run. Never fabricate a scan result or waive the checks below.
    - Standalone executable at a locally reviewed location:
    `{containerPrefix} php {uctPath}/bin/uct --version`. Do not interpolate an unvalidated
      cached path.
+   - External PHP 8.4 runner (when the project container's PHP is below UCT's requirement, for
+     example `Your Composer dependencies require a PHP version ">= 8.4.0"`):
+     `python3 .claude/scripts/uct_runner.py -- --version`
+     (Copilot: `.github/scripts/uct_runner.py`). With no options the helper uses the image
+     `ccua-uct-runner:php8.4` and the HOST directory
+     `~/.claude/tools/uct-standalone/{projectDirectoryName}` for every Docker type (not the
+     container-only `var/ccua/uct-standalone`, which the host cannot see). Pass `--image` /
+     `--uct-path` only for a different, user-confirmed location; if the default is missing, ask
+     the user once for the host directory containing `bin/uct`, never search the home directory.
+     Record its exit code as `externalRunnerExitCode`.
+     Probe it only after the in-container probes fail with a PHP-version platform error.
    Stop probing once a working executable is verified; never suggest reinstallation solely
    because the Magento command is unregistered. Review the selected executable's
    `help upgrade:check` to verify supported scan/output flags before constructing argv.
@@ -41,7 +52,7 @@ when they have not run. Never fabricate a scan result or waive the checks below.
    artifact `.ccua/review/uct-prerequisite.json`, then classify with:
    `node .claude/scripts/assess_tools.mjs uct-prerequisite .ccua/review/uct-prerequisite.json`.
    Input shape: `{"inProjectExitCode":null,"composerExitCode":null,"standaloneExitCode":null,
-   "probeFailure":"missing",
+   "externalRunnerExitCode":null,"probeFailure":"missing",
    "installationOutcome":"not-attempted","continueIncomplete":false}`.
    Use `null` only for a probe not run, not for a successful result. Outcomes are
    `not-attempted`, `completed`, `declined`, or `failed`; this file is evidence, not consent.
@@ -102,6 +113,8 @@ Read `uctInstallMode` from `context/upgrade-state.md`'s `# Environment detection
 - If `composer`: re-probe the reviewed Composer executable before Step 5.
 - If `standalone-fallback`: read `uctStandalonePath` from the same section and skip to Step 3
   (idempotency check) using that path.
+- If `external-runner`: read `uctRunnerImage` and `uctHostPath` from the same section and
+  re-probe with the runner helper before Step 5 (see Step 3b).
 - If unset (`~`): run the prerequisite above; do not assume an installation is needed.
 
 ## Step 2: Human-run in-project installation (optional)
@@ -188,6 +201,35 @@ After the human reports success, re-run the version probe. Only after live verif
 may the approved orchestrator record `uctInstallMode: standalone-fallback` and the reviewed
 `uctStandalonePath` in `context/upgrade-state.md`.
 
+## Step 3b: External PHP 8.4 runner (project PHP below UCT's requirement)
+
+UCT 3.x requires PHP 8.4+. A project on PHP 8.1 (for example 2.4.4 on Warden) cannot run it in
+its own container, and `--ignore-current-version-compatibility-issues` does not change that: the
+requirement is UCT's own Composer platform check. UCT only reads source, so it can run in a
+separate container while the project keeps its PHP. The human prepares this once, outside the
+assessment (no project credentials are involved when UCT already exists in the project
+container; otherwise installing it needs the human's own Composer keys):
+
+```bash
+# 1. Runner image: PHP 8.4 plus Node (UCT's JavaScript/eslint checks need node)
+printf 'FROM node:22-slim AS node\nFROM php:8.4-cli\nCOPY --from=node /usr/local/bin/node /usr/local/bin/node\n' \
+  | docker build -t ccua-uct-runner:php8.4 -
+# 2. UCT on the host, outside the project and outside any credential directory, e.g.
+#    ~/.claude/tools/uct-standalone/{projectSlug}  (copy an existing standalone install with
+#    `docker cp {container}:{project}/var/ccua/uct-standalone <dest>`, or install it per Step 3)
+```
+
+`uct_runner.py` is the only agent-run entry point. It builds a fixed `docker run` with
+`--network none`, `--cap-drop ALL`, `--read-only`, no-new-privileges, the project mounted
+**read-only**, UCT mounted read-only, and only the capture `context` directory writable. It
+never mounts `~/.composer`, `~/.ssh` or any credential path (a `--uct-path` inside one is
+rejected), forwards no environment, and accepts only `--version`, `help upgrade:check` and an
+`upgrade:check .` argument set limited to `--current-version`, `--coming-version`,
+`--ignore-current-version-compatibility-issues`, `--min-issue-level`, `--no-interaction` and the
+capture helper's private `--json-output-path`. Record `uctInstallMode: external-runner`,
+`uctRunnerImage` and `uctHostPath` after live verification. A scan of a large project can take
+10+ minutes and about 3 GB of memory; raise `--memory` if the container is killed.
+
 ## Step 4: (reserved)
 
 No action — Steps 2/3 already cover both branches. Continue to Step 5.
@@ -214,13 +256,37 @@ python3 .claude/scripts/capture_uct.py --project-root . --agent claude-code --mo
   {containerPrefix} php -d memory_limit=-1 vendor/bin/uct upgrade:check . \
   --current-version={installedVersion} \
   --coming-version={resolvedTargetVersion} \
+  --ignore-current-version-compatibility-issues \
   '--json-output-path={uct-report}' \
   --min-issue-level=warning --no-interaction
 ```
 
-For `/upgrade-assess`, run both baseline and target captures with
-`--min-issue-level=critical` per `upgrade-assessment`. Use file mode only if the selected
-executable's reviewed help supports `--json-output-path`; do not reuse Magento-only flags.
+**External runner mode** (project PHP below UCT's requirement; no `{containerPrefix}`):
+
+```bash
+python3 .claude/scripts/capture_uct.py --project-root . --agent claude-code --mode file -- \
+  python3 .claude/scripts/uct_runner.py --context-dir .claude/context -- \
+  upgrade:check . --current-version={installedVersion} --coming-version={resolvedTargetVersion} \
+  --ignore-current-version-compatibility-issues '--json-output-path={uct-report}' \
+  --min-issue-level=warning --no-interaction
+```
+
+For `/upgrade-assess`, run the same single capture with `--min-issue-level=critical` per
+`upgrade-assessment`. Use file mode only if the selected executable's reviewed help supports
+`--json-output-path`; do not reuse Magento-only flags.
+
+**`--ignore-current-version-compatibility-issues` (`-i`)** is documented for `upgrade:check` in
+Adobe's [UCT CLI reference](https://experienceleague.adobe.com/en/docs/commerce-operations/tools/cli-reference/uct#upgradecheck)
+("Ignore common issues for current and coming version", no value). With it, one scan with
+`--current-version` and `--coming-version` reports only issues that are new for the target, so
+the toolkit no longer runs a second baseline scan and diffs the two. Include the flag only after
+the selected executable's reviewed `help upgrade:check` lists it (a UCT 3.x Composer/standalone
+executable does; the registered `bin/magento upgrade:check` wrapper may not) and only when
+`--current-version` is known. If the help does not list it, drop the flag and fall back to the
+baseline (`--coming-version={installedVersion}`) plus target pair compared with
+`assess_tools.mjs diff-uct`. Record which mode ran as `scanMode` (`upgrade-assessment`). The
+flag removes issues common to both versions, so no baseline-only list is produced; planning does
+not need one.
 
 **Standalone fallback mode** (no `--target-edition` flag exists on the standalone CLI —
 edition is inferred automatically from the target directory's own installed packages, so this
@@ -231,6 +297,7 @@ python3 .claude/scripts/capture_uct.py --project-root . --agent claude-code --mo
   {containerPrefix} php -d memory_limit=-1 {uctStandalonePath}/bin/uct upgrade:check . \
   --current-version={installedVersion} \
   --coming-version={resolvedTargetVersion} \
+  --ignore-current-version-compatibility-issues \
   '--json-output-path={uct-report}' \
   --min-issue-level=warning --no-interaction
 ```

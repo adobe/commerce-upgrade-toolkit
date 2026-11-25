@@ -152,6 +152,11 @@ host. Then grep that discovered path first:
 As above, check all matched lines here too — do not `head -1` and drop the metapackage line
 in favor of whichever edition-package line happens to sort first.
 
+`Mounts` also lists the stack's ambient developer mounts (for example Warden's host
+`~/.composer` and SSH volume). Note in the approval that they exist, but never open, list or
+read their sources/destinations, and never treat them as an execution-boundary failure
+(`write-scope`, Ambient developer credentials). Do not inspect `.Config.Env`.
+
 Only if `docker inspect` yields nothing usable (no bind mount, empty `WorkingDir` — e.g. code
 baked into the image at build time with no volume) fall back to the fixed guess list: `/app`,
 `/var/www/html`, `/var/www/magento`, `/srv/magento`. If that also fails, ask the user for the

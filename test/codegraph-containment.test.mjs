@@ -664,7 +664,7 @@ test('shipped containment guards prohibit provisioning, bare launch, mandatory r
   const settings = JSON.parse(read('.claude/settings.json'))
   assert.ok(settings.permissions.allow.length > 0)
   assert.ok(settings.permissions.allow.every(rule =>
-    !/codegraph|composer|setup:upgrade|setup:install/.test(rule)))
+    !/codegraph|composer|setup:upgrade|setup:install/.test(rule.replace('.claude/scripts/composer_probe.py', ''))))
   assert.ok(!settings.permissions.allow.includes('Bash'))
   assert.ok(!settings.permissions.allow.includes('Bash(bin/magento *)'))
   assert.equal(settings.enabledMcpjsonServers, undefined)
