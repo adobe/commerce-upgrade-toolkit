@@ -2,7 +2,7 @@
 
 Release history for `@adobe/commerce-upgrade-toolkit`.
 
-## [Unreleased]
+## [1.0.11]
 
 - Treat the credentials that local stacks mount into the PHP container (Warden's host `~/.composer`, its SSH volume and the forwarded SSH agent socket) as ambient developer credentials: they no longer pause or block assessment/hop execution, and the workflow never asks the user to remove them. The approval names them; agents still never read, list or print them, and "host credential exclusions" is clarified to cover the agent's own native tools only.
 - Add `composer_probe.py` so the orchestrator can check newer versions of third-party extensions inside the verified container using the ambient Composer keys: fixed read-only `composer outdated|show` queries with `--no-plugins --no-scripts`, filtered environment, validated prefix/tokens, whitelisted escaped output, credential-shaped output withheld, and failures reported by kind only.
