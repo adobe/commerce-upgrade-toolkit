@@ -35,7 +35,8 @@ when they have not run. Never fabricate a scan result or waive the checks below.
      `python3 .claude/scripts/uct_runner.py -- --version`
      (Copilot: `.github/scripts/uct_runner.py`). With no options the helper uses the image
      `ccua-uct-runner:php8.4` and the HOST directory
-     `~/.claude/tools/uct-standalone/{projectDirectoryName}` for every Docker type (not the
+     `~/.claude/tools/uct-standalone/{projectDirectoryName}` (the helper also checks the other
+     agent flavour's tools folder and uses whichever contains `bin/uct`) for every Docker type (not the
      container-only `var/ccua/uct-standalone`, which the host cannot see). Pass `--image` /
      `--uct-path` only for a different, user-confirmed location; if the default is missing, ask
      the user once for the host directory containing `bin/uct`, never search the home directory.

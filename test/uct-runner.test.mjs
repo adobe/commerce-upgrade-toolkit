@@ -59,6 +59,10 @@ test('runner defaults the image and finds UCT under ~/.claude/tools/uct-standalo
   assert.equal(result.status, 0, result.stderr);
   assert.ok(argv.includes(`${defaultUct}:/uct:ro`));
   assert.ok(argv.includes('ccua-uct-runner:php8.4'));
+  const aio = join(home, '.aio-ccua/tools/uct-standalone', 'project');
+  mkdirSync(join(aio, 'bin'), { recursive: true });
+  writeFileSync(join(aio, 'bin/uct'), '');
+  assert.ok(call(['--', '--version'], { HOME: home }).argv.includes(`${aio}:/uct:ro`), '.aio-ccua is preferred when present');
   const missing = call(['--', '--version'], { HOME: join(dir, 'nohome') });
   assert.equal(missing.result.status, 1);
   assert.match(missing.result.stderr, /existing absolute non-symlink directory/);

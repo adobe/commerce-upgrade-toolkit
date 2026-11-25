@@ -710,7 +710,9 @@ export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
   let uct = null
   try { uct = prereq ? uctPrerequisite(JSON.parse(prereq)) : null } catch { /* invalid record */ }
   let hostUct = false
-  try { hostUct = lstatSync(join(home, '.claude', 'tools', 'uct-standalone', basename(root), 'bin', 'uct')).isFile() } catch { /* not installed */ }
+  for (const dir of ['.aio-ccua', '.claude']) {
+    try { hostUct = hostUct || lstatSync(join(home, dir, 'tools', 'uct-standalone', basename(root), 'bin', 'uct')).isFile() } catch { /* not installed */ }
+  }
   if (uct?.scanAllowed) add('uct', 'done', `UCT verified (${uct.mode})`, null)
   else if (hostUct) add('uct', 'todo', 'UCT found for the external PHP 8.4 runner; verify it',
     'The workflow runs: python3 ' + base + '/scripts/uct_runner.py -- --version (needs the ccua-uct-runner:php8.4 Docker image).',
