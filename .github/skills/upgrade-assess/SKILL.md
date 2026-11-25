@@ -145,9 +145,11 @@ with the one-line "not proof of production readiness" statement.
 
 ## Step 6: Hand-off
 
-Finish with the **"What to do next"** section described in `upgrade-hop`'s Guided next steps
-(`node .github/scripts/assess_tools.mjs next-steps . --agent github-copilot --text`; Copilot uses
-`.github/scripts/` and `--agent github-copilot`); run it also when this command stops early.
+Finish by applying `upgrade-hop`'s **Guided next steps**: run
+`node .github/scripts/assess_tools.mjs next-steps . --agent github-copilot` (Copilot uses
+`.github/scripts/` and `--agent github-copilot`), ask the structured "What would you like to do
+now?" question with its `options`, and act on the selection under the same rules (a selection is
+not approval, human items stay human-run). Do the same when this command stops early.
 Print the paths of both documents and the human-run conversion runbook for **PDF** and
 **DOCX** (Section 6 of the skill). Agents do not create binary documents or run converters.
 Mention the toolkit's human-run helper: `node <toolkit>/scripts/export-assessment.mjs --html <report.html> --md <report.md> --out-dir <dir>`

@@ -446,16 +446,22 @@ test('upgrade-hop lets the user choose the hop strategy and records it unset unt
   }
 })
 
-test('upgrade-hop and upgrade-assess end every run with guided next steps in both flavours', () => {
+test('guided next steps is a user selection that acts on the choice without granting approval', () => {
   const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
   for (const [hop, assess, agent] of [
     ['.claude/commands/upgrade-hop.md', '.claude/commands/upgrade-assess.md', 'claude-code'],
     ['.github/skills/upgrade-hop/SKILL.md', '.github/skills/upgrade-assess/SKILL.md', 'github-copilot']]) {
     const text = read(hop)
-    assert.ok(text.includes(`assess_tools.mjs next-steps . --agent ${agent} --text`))
-    assert.match(text, /LAST thing printed/)
-    assert.match(text, /never runs commands/)
-    assert.match(text, /never delete them yourself/)
-    assert.match(read(assess), /What to do next/)
+    assert.ok(text.includes(`assess_tools.mjs next-steps . --agent ${agent}`))
+    assert.match(text, /decision point, not a printout/)
+    assert.match(text, /structured \*\*multi-select\*\* question/)
+    assert.match(text, /never pre-select or\s+choose for the user/)
+    for (const invoke of ['show-cleanup-commands', 'planning-mode', 'strategy-question', 'uct-prerequisite-probe', 'analysis-mode', 'intake']) {
+      assert.ok(text.includes('`' + invoke + '`'), invoke)
+    }
+    assert.match(text, /It is \*\*not\*\* approval/)
+    assert.match(text, /never executed by an agent/)
+    assert.match(text, /built by hand/)
+    assert.match(read(assess), /What would you like to do\s+now\?/)
   }
 })

@@ -668,7 +668,9 @@ export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
   const contextDir = join(root, base, 'context')
   const stateText = safeFile(join(contextDir, 'upgrade-state.md'))
   const steps = []
-  const add = (id, status, title, action) => steps.push({ id, status, title, action })
+  // mode: agent = the workflow performs it within the approved routine scope; decision = the
+  // user answers a question; human = the user runs the listed commands themselves.
+  const add = (id, status, title, action, extra = {}) => steps.push({ id, status, title, action, ...extra })
   const listDir = (dir) => { try { return readdirSync(dir, { withFileTypes: true }) } catch { return [] } }
 
   const strayState = safeFile(join(root, 'context', 'upgrade-state.md')) !== null
@@ -678,24 +680,31 @@ export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
   if (strayState || leftovers.length) {
     const items = [...(strayState ? ['context/upgrade-state.md (a second, stale state file; only ' + base + '/context/upgrade-state.md is used)'] : []),
       ...leftovers.map((p) => `${p}/ (unfinished or failed scan capture)`)]
+    const commands = [...(strayState ? ['mv context/upgrade-state.md /tmp/ccua-old-upgrade-state.md', 'rmdir context'] : []),
+      ...leftovers.map((p) => `rm -rf ${p}`)]
     add('cleanup', 'todo', 'Remove stale files from an earlier run',
-      'Review, then move or delete these yourself so they are not mistaken for current evidence: ' + items.join('; '))
+      'Review, then move or delete these yourself so they are not mistaken for current evidence: ' + items.join('; '),
+      { mode: 'human', invoke: 'show-cleanup-commands', label: 'Show me the cleanup commands (I run them)', humanCommands: commands })
   } else add('cleanup', 'done', 'No stale state or unfinished captures found', null)
 
   const missing = ['fromVersion', 'toVersion', 'implementationType'].filter((n) => !stateField(stateText, n))
   const planned = stateField(stateText, 'phase') && stateField(stateText, 'phase') !== 'new'
   if (!stateText) add('state', 'blocked', 'Project state file is missing',
-    `Run the update command so ${base}/context/upgrade-state.md is created from the template.`)
+    `Run the update command so ${base}/context/upgrade-state.md is created from the template.`,
+    { mode: 'human', invoke: 'show-update-command', label: 'Show me how to restore the state file' })
   else if (!planned) add('plan', 'todo', 'Plan the upgrade path',
-    'Run /upgrade-hop with no argument. Answer the intake, attest the instance is local/dev non-production, and review the hop plan.')
+    'Run /upgrade-hop with no argument. Answer the intake, attest the instance is local/dev non-production, and review the hop plan.',
+    { mode: 'agent', invoke: 'planning-mode', label: 'Plan the upgrade path now' })
   else add('plan', 'done', 'Upgrade path planned', null)
   if (stateText && missing.length) add('facts', 'todo', 'Project facts are unset: ' + missing.join(', '),
-    'They are asked once in /upgrade-hop intake; unknown is accepted.')
+    'They are asked once in /upgrade-hop intake; unknown is accepted.',
+    { mode: 'decision', invoke: 'intake', label: 'Fill in the missing project facts' })
 
   const strategy = stateField(stateText, 'hopStrategy')
   add('hop-strategy', strategy ? 'done' : 'todo',
     strategy ? `Hop strategy: ${strategy}` : 'Choose the hop strategy',
-    strategy ? null : 'Chosen by you in the /upgrade-hop planning review: risk-based (recommended), single-hop or every-minor. Until then the plan is provisional.')
+    strategy ? null : 'Chosen by you in the /upgrade-hop planning review: risk-based (recommended), single-hop or every-minor. Until then the plan is provisional.',
+    strategy ? {} : { mode: 'decision', invoke: 'strategy-question', label: 'Choose the hop strategy' })
 
   const prereq = safeFile(join(root, '.ccua', 'review', 'uct-prerequisite.json'), 4096)
   let uct = null
@@ -704,24 +713,37 @@ export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
   try { hostUct = lstatSync(join(home, '.claude', 'tools', 'uct-standalone', basename(root), 'bin', 'uct')).isFile() } catch { /* not installed */ }
   if (uct?.scanAllowed) add('uct', 'done', `UCT verified (${uct.mode})`, null)
   else if (hostUct) add('uct', 'todo', 'UCT found for the external PHP 8.4 runner; verify it',
-    'The workflow runs: python3 ' + base + '/scripts/uct_runner.py -- --version (needs the ccua-uct-runner:php8.4 Docker image).')
+    'The workflow runs: python3 ' + base + '/scripts/uct_runner.py -- --version (needs the ccua-uct-runner:php8.4 Docker image).',
+    { mode: 'agent', invoke: 'uct-prerequisite-probe', label: 'Verify UCT now (version probe)' })
   else add('uct', 'todo', 'No UCT verified yet',
-    'If the project container runs PHP below 8.4, do the one-time UCT runner setup (uct-install skill, Step 3b); otherwise the workflow probes the in-container UCT.')
+    'If the project container runs PHP below 8.4, do the one-time UCT runner setup (uct-install skill, Step 3b); otherwise the workflow probes the in-container UCT.',
+    { mode: 'agent', invoke: 'uct-prerequisite-probe', label: 'Probe for UCT now (in-container, then external runner)' })
 
   const normalized = safeFile(join(contextDir, 'upgrade-findings.normalized.json'), 64 * 1024 * 1024) !== null
   if (normalized) add('scan', 'done', 'A normalized UCT report exists', 'Confirm it is for the current version pair; the workflow rechecks this before use.')
   else add('scan', planned ? 'todo' : 'info', 'Run the UCT scan',
-    'Run /upgrade-hop with a target version, for example /upgrade-hop 2.4.9. One scan per hop; a single-hop plan needs one. It can take 15+ minutes on a large project.')
+    'Run /upgrade-hop with a target version, for example /upgrade-hop 2.4.9. One scan per hop; a single-hop plan needs one. It can take 15+ minutes on a large project.',
+    { mode: 'agent', invoke: 'analysis-mode', label: 'Run the UCT scan now (can take 15+ minutes)',
+      target: /^\d+\.\d+\.\d+(-p\d+)?$/.test(stateField(stateText, 'toVersion') || '') ? stateField(stateText, 'toVersion') : null })
 
   const first = steps.find((s) => s.status === 'todo' || s.status === 'blocked') || null
-  return { agent: detected, next: first ? { id: first.id, title: first.title, action: first.action } : null, steps }
+  // Ready-made choices for the structured "what next" question, in dependency order. Choosing
+  // one only selects what the workflow does next; it is not approval for commands or writes.
+  const options = steps.filter((s) => s.invoke && (s.status === 'todo' || s.status === 'blocked'))
+    .map((s) => ({ id: s.id, label: s.label, mode: s.mode, invoke: s.invoke,
+      ...(s.target !== undefined ? { target: s.target } : {}),
+      ...(s.humanCommands ? { humanCommands: s.humanCommands } : {}) }))
+  return { agent: detected, next: first ? { id: first.id, title: first.title, action: first.action } : null, options, steps }
 }
 
 function renderSteps(result) {
   const icon = { done: '[x]', todo: '[ ]', blocked: '[!]', info: '[-]' }
   const lines = result.steps.map((s) => `${icon[s.status]} ${s.title}${s.action ? '\n      -> ' + s.action : ''}`)
+  const modes = { agent: 'I do it', decision: 'you decide', human: 'you run it' }
+  const choices = result.options.map((o, i) => `  ${i + 1}. ${o.label}  [${modes[o.mode]}]`)
   return ['Upgrade status and next steps', ...lines,
-    result.next ? `\nNext: ${result.next.title}` : '\nNothing outstanding.'].join('\n')
+    result.next ? `\nNext: ${result.next.title}` : '\nNothing outstanding.',
+    ...(choices.length ? ['\nChoose what to do now:', ...choices, '  0. Nothing now, just show status'] : [])].join('\n')
 }
 
 function main(argv) {
