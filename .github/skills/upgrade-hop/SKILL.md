@@ -488,8 +488,9 @@ Validate that targetVersion matches the next hop in `hopPlan`. If it diverges, h
 **UCT prerequisite (analysis mode only):** apply `uct-install`'s **Assessment prerequisite**
 before any fresh/cached scan handling or scan-dependent report. Verify the registered
 Magento, Composer or reviewed standalone executable in the live environment. If unavailable,
-offer the human-run installation procedure and re-probe afterward; never install UCT
-or other dependencies from this analysis command.
+offer the `uct-install` Step 3 project-local standalone install (agent-run only after the
+user's explicit approval) and re-probe afterward; never install other dependencies from this
+analysis command.
 
 If installation is declined or fails, allow a report only after the explicit live choice
 to continue incomplete. Record `currentHop.uctAssessment` with this version pair,
@@ -553,10 +554,11 @@ actual pinned version.
 
 Apply `uct-install` Step 5 using the live-verified existing mode (never a bare
 `--coming-version` literal on a Cloud project — pass `resolvedTargetVersion` from the
-metapackage resolution above). Installation/checkpoint/worktree preparation belongs to the
-human-run procedure outside this command. A failed human Composer attempt is not assumed
-to have left dependencies unchanged; unresolved dependency/runtime effects block scanning.
-Do not run `composer require` or an automatic standalone fallback here.
+metapackage resolution above). Checkpoint/worktree preparation and any in-project
+`composer require` belong to the human-run procedure outside this command. A failed Composer
+attempt is not assumed to have left dependencies unchanged; unresolved dependency/runtime
+effects block scanning. Do not run `composer require` or an unapproved automatic standalone
+fallback here; the approved `uct-install` Step 3 install is the only permitted installation.
 
 Use `uct-install`'s approved `capture_uct.py` invocation to publish raw JSON safely.
 Never use shell redirection to the final raw destination, modify raw JSON for cache metadata,

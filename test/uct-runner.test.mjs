@@ -53,22 +53,21 @@ test('runner builds a hardened docker argv with a read-only project and writable
   assert.equal(argv[argv.indexOf('ccua-uct-runner:php8.4') + 1], 'php');
 }));
 
-test('runner defaults the image and finds UCT under ~/.claude/tools/uct-standalone/<project name>', () => fixture(({ dir, project, call }) => {
+test('runner defaults the image and finds UCT only under <project>/var/ccua/uct-standalone', () => fixture(({ dir, project, call }) => {
   const home = join(dir, 'home');
-  const defaultUct = join(home, '.claude/tools/uct-standalone', 'project');
-  mkdirSync(join(defaultUct, 'bin'), { recursive: true });
-  writeFileSync(join(defaultUct, 'bin/uct'), '');
-  const { result, argv } = call(['--', '--version'], { HOME: home });
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(argv.includes(`${defaultUct}:/uct:ro`));
-  assert.ok(argv.includes('ccua-uct-runner:php8.4'));
-  const aio = join(home, '.aio-ccua/tools/uct-standalone', 'project');
-  mkdirSync(join(aio, 'bin'), { recursive: true });
-  writeFileSync(join(aio, 'bin/uct'), '');
-  assert.ok(call(['--', '--version'], { HOME: home }).argv.includes(`${aio}:/uct:ro`), '.aio-ccua is preferred when present');
-  const missing = call(['--', '--version'], { HOME: join(dir, 'nohome') });
-  assert.equal(missing.result.status, 1);
-  assert.match(missing.result.stderr, /existing absolute non-symlink directory/);
+  const legacy = join(home, '.claude/tools/uct-standalone', 'project');
+  mkdirSync(join(legacy, 'bin'), { recursive: true });
+  writeFileSync(join(legacy, 'bin/uct'), '');
+  const ignored = call(['--', '--version'], { HOME: home });
+  assert.equal(ignored.result.status, 1, 'home-directory installs are not used');
+  assert.match(ignored.result.stderr, /existing absolute non-symlink directory/);
+  const local = join(project, 'var/ccua/uct-standalone');
+  mkdirSync(join(local, 'bin'), { recursive: true });
+  writeFileSync(join(local, 'bin/uct'), '');
+  const found = call(['--', '--version'], { HOME: home });
+  assert.equal(found.result.status, 0, found.result.stderr);
+  assert.ok(found.argv.includes(`${local}:/uct:ro`));
+  assert.ok(found.argv.includes('ccua-uct-runner:php8.4'));
 }));
 
 test('runner version probe mounts no writable context', () => fixture(({ project, uct, call }) => {

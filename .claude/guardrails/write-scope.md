@@ -148,7 +148,8 @@ production readiness.
   Execute only after every required gate passes. Exact patch/command approval and the
   sensitive human-operated security challenge remain separate; never default consent.
 - Do not bootstrap infrastructure or install a database/sample data as a planning fallback.
-  Offer human-run preparation steps instead. Missing UCT still requires the existing
+  Offer human-run preparation steps instead. Missing UCT is handled by the `uct-install`
+  prerequisite (approved project-local install) with the existing
   explicit incomplete-report choice for scan-dependent assessments, never a silent downgrade.
 
 Trusted toolkit-maintenance tests on synthetic fixtures require separate maintainer approval;

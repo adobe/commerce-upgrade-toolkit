@@ -88,8 +88,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", default=DEFAULT_IMAGE, help="local image with PHP 8.4+ and Node")
     parser.add_argument("--uct-path", help="host directory of the standalone UCT "
-                        "(default: ~/.aio-ccua/tools/uct-standalone/<project directory name>, "
-                        "else ~/.claude/tools/uct-standalone/<project directory name>)")
+                        "(default: <project root>/var/ccua/uct-standalone)")
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--context-dir", choices=CONTEXTS, default=".github/context")
     parser.add_argument("--memory", default="6g")
@@ -102,10 +101,7 @@ def main():
         if not re.match(r"^[1-9]\d{0,3}[mg]$", args.memory):
             reject("memory must look like 6g")
         root = clean_directory(os.path.abspath(args.project_root), "--project-root")
-        candidates = [os.path.join(os.path.expanduser("~"), tools, "tools", "uct-standalone",
-                                   os.path.basename(root)) for tools in (".aio-ccua", ".claude")]
-        default = next((path for path in candidates if os.path.isfile(os.path.join(path, "bin", "uct"))),
-                       candidates[0])
+        default = os.path.join(root, "var", "ccua", "uct-standalone")
         # Check the credential-directory rule on the path as given, before resolving defaults.
         uct = clean_directory(args.uct_path or default, "--uct-path")
         if not os.path.isfile(os.path.join(uct, "bin", "uct")):

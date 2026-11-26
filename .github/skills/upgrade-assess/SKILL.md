@@ -61,8 +61,9 @@ Usage: `/upgrade-assess <targetVersion>` — the target must match
 Apply `uct-install`'s **Assessment prerequisite** before collecting UCT evidence or
 generating scan-dependent reports. Reuse its Magento, Composer and standalone probes in
 the verified environment; do not create a second detection or installation flow.
-never install dependencies in this command. If missing, offer the human-run installation
-procedure, then re-probe afterward. If installation is declined or fails, continue only
+Never install dependencies in this command except the `uct-install` Step 3 standalone UCT
+install into `var/ccua/uct-standalone`, and only after the user's explicit approval of that
+choice. If missing, offer that install, then re-probe afterward. If installation is declined or fails, continue only
 after the user's explicit incomplete-assessment choice; otherwise pause.
 Use the shared failure recovery for `execution-failed` and `normalization-unsupported`;
 installed tooling is not completed evidence. A later scan/capture/normalization failure

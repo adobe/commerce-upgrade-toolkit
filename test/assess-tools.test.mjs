@@ -243,7 +243,7 @@ test('both agent flavors gate scan reports without adding UCT to roadmap plannin
       : '.github/skills/uct-install/SKILL.md'
     const assess = read(command('upgrade-assess'))
     assert.ok(assess.indexOf('### Step 0a: UCT prerequisite') < assess.indexOf('## Step 2: Collect evidence'))
-    assert.match(assess, /never install dependencies in this command/)
+    assert.match(assess, /Never install dependencies in this command except/)
     assert.match(assess, /quarantineCount: null/)
     const hop = read(command('upgrade-hop'))
     const analysis = hop.split('## ANALYSIS MODE')[1]
@@ -253,7 +253,7 @@ test('both agent flavors gate scan reports without adding UCT to roadmap plannin
     assert.match(analysis, /Do not mark an incomplete hop analysed/)
     assert.doesNotMatch(analysis, /skill to install and run the scan|falls back automatically to a\nstandalone install/)
     assert.match(read(command('upgrade-hop-execute')), /currentHop\.uctAssessment\.status.*`not-assessed`/)
-    assert.match(read(skill), /human-run installation procedure/)
+    assert.match(read(skill), /install UCT into the\s+project/)
     assert.match(read(skill), /Set `continueIncomplete: true` only after that explicit live choice/)
     assert.match(read(skill), /php vendor\/bin\/uct --version/)
     assert.match(read(skill), /composerExitCode/)
@@ -323,7 +323,6 @@ test('patchEvidence drops catalog patches whose range excludes the target and ke
 
 test('next-steps reports stale files, unset choices and UCT state, and only proposes actions', () => {
   const root = mkdtempSync(join(tmpdir(), 'next-steps-'))
-  const home = mkdtempSync(join(tmpdir(), 'next-steps-home-'))
   try {
     const project = join(root, 'shop')
     mkdirSync(join(project, '.github/context'), { recursive: true })
@@ -333,7 +332,7 @@ test('next-steps reports stale files, unset choices and UCT state, and only prop
     writeFileSync(join(project, '.github/context/upgrade-state.md'), 'fromVersion: ~\nphase: new\nhopStrategy: ~\n')
     writeFileSync(join(project, 'context/upgrade-state.md'), 'fromVersion: 2.4.4\n')
     mkdirSync(join(project, '.github/context/.uct-capture-' + 'a'.repeat(32)))
-    const first = nextSteps(project, { home })
+    const first = nextSteps(project)
     assert.equal(first.agent, 'github-copilot')
     assert.equal(first.next.id, 'cleanup')
     const status = Object.fromEntries(first.steps.map((s) => [s.id, s.status]))
@@ -351,27 +350,27 @@ test('next-steps reports stale files, unset choices and UCT state, and only prop
     assert.equal(byId.uct.invoke, 'uct-prerequisite-probe')
     assert.ok(!first.options.some((o) => o.mode === 'agent' && o.id === 'cleanup'), 'cleanup is never agent-run')
 
-    mkdirSync(join(home, '.claude/tools/uct-standalone/shop/bin'), { recursive: true })
-    writeFileSync(join(home, '.claude/tools/uct-standalone/shop/bin/uct'), '')
-    assert.match(nextSteps(project, { home }).steps.find((s) => s.id === 'uct').title, /external PHP 8.4 runner/)
+    mkdirSync(join(project, 'var/ccua/uct-standalone/bin'), { recursive: true })
+    writeFileSync(join(project, 'var/ccua/uct-standalone/bin/uct'), '')
+    assert.match(nextSteps(project).steps.find((s) => s.id === 'uct').title, /external PHP 8.4 runner/)
 
     writeFileSync(join(project, '.ccua/review/uct-prerequisite.json'), JSON.stringify({ externalRunnerExitCode: 0 }))
     rmSync(join(project, 'context'), { recursive: true })
     rmSync(join(project, '.github/context/.uct-capture-' + 'a'.repeat(32)), { recursive: true })
     writeFileSync(join(project, '.github/context/upgrade-state.md'),
       'fromVersion: 2.4.4-p9\ntoVersion: 2.4.9\nimplementationType: luma\nphase: planned\nhopStrategy: single-hop\n')
-    const clean = nextSteps(project, { home })
+    const clean = nextSteps(project)
     assert.equal(clean.steps.find((s) => s.id === 'cleanup').status, 'done')
     assert.equal(clean.steps.find((s) => s.id === 'uct').title, 'UCT verified (external-runner)')
     assert.equal(clean.next.id, 'scan')
     assert.deepEqual(clean.options.map((o) => o.id), ['scan'])
     assert.equal(clean.options[0].target, '2.4.9')
     writeFileSync(join(project, '.github/context/upgrade-findings.json'), '{"issues":[{"fileName": "/app/app/code/A/B.php"}]}')
-    const stale = nextSteps(project, { home })
+    const stale = nextSteps(project)
     assert.equal(stale.next.id, 'cleanup')
     assert.ok(stale.options.find((o) => o.id === 'cleanup').humanCommands.some((c) => c.startsWith('rm -f .github/context/upgrade-findings.json')))
     writeFileSync(join(project, '.github/context/upgrade-findings.json'), '{"issues":[{"fileName": "/Users/x/shop/app/code/A/B.php"}]}')
-    assert.equal(nextSteps(project, { home }).steps.find((s) => s.id === 'cleanup').status, 'done')
+    assert.equal(nextSteps(project).steps.find((s) => s.id === 'cleanup').status, 'done')
     assert.throws(() => nextSteps(join(root, 'missing')), /flavour/)
-  } finally { rmSync(root, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }) }
+  } finally { rmSync(root, { recursive: true, force: true }) }
 })
