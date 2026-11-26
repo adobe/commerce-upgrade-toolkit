@@ -67,6 +67,9 @@ encryptionGate: ~
 # passed | blocked
 
 ## Hop plan
+hopStrategy: ~
+# risk-based | single-hop | every-minor — chosen by the user in /upgrade-hop's combined planning
+# review (the architect only recommends). ~ = not chosen; the plan below is then provisional.
 <!-- Populated by /upgrade-hop planning mode. Boundaries are architect judgment, not a fixed patch-by-patch list — see reason. -->
 
 | # | fromVersion | toVersion | effortTier | reason | encryptionRotationRequired | encryptionRotationMethod | encryptionRotationConfirmation |

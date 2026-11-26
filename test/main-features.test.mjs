@@ -432,3 +432,54 @@ test('npm distribution includes every runtime dependency file and workflow asset
   }
   assert.ok(![...files].some((path) => path.includes('.ccua-functional-test-')))
 }))
+
+test('upgrade-hop lets the user choose the hop strategy and records it unset until chosen', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const [command, state] of [['.claude/commands/upgrade-hop.md', '.claude/context/upgrade-state.md'],
+    ['.github/skills/upgrade-hop/SKILL.md', '.github/context/upgrade-state.md']]) {
+    const text = read(command)
+    for (const option of ['`risk-based`', '`single-hop`', '`every-minor`']) assert.ok(text.includes(option), option)
+    assert.match(text, /never choose for the user/)
+    assert.match(text, /a single hop never waives an infrastructure floor/)
+    assert.match(text, /never authorizes execution/)
+    assert.match(read(state), /^hopStrategy: ~$/m)
+  }
+})
+
+test('guided next steps is a user selection that acts on the choice without granting approval', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const [hop, assess, agent] of [
+    ['.claude/commands/upgrade-hop.md', '.claude/commands/upgrade-assess.md', 'claude-code'],
+    ['.github/skills/upgrade-hop/SKILL.md', '.github/skills/upgrade-assess/SKILL.md', 'github-copilot']]) {
+    const text = read(hop)
+    assert.ok(text.includes(`assess_tools.mjs next-steps . --agent ${agent}`))
+    assert.match(text, /decision point, not a printout/)
+    assert.match(text, /structured \*\*multi-select\*\* question/)
+    assert.match(text, /never pre-select or\s+choose for the user/)
+    for (const invoke of ['show-cleanup-commands', 'planning-mode', 'strategy-question', 'uct-prerequisite-probe', 'analysis-mode', 'intake']) {
+      assert.ok(text.includes('`' + invoke + '`'), invoke)
+    }
+    assert.match(text, /It is \*\*not\*\* approval/)
+    assert.match(text, /never executed by an agent/)
+    assert.match(text, /built by hand/)
+    assert.match(read(assess), /What would you like to do\s+now\?/)
+  }
+})
+
+test('write-scope defines the single approval wording and both commands point to it', () => {
+  const read = relative => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
+  for (const [scope, hop, assess] of [
+    ['.claude/guardrails/write-scope.md', '.claude/commands/upgrade-hop.md', '.claude/commands/upgrade-assess.md'],
+    ['.github/instructions/write-scope.instructions.md', '.github/skills/upgrade-hop/SKILL.md', '.github/skills/upgrade-assess/SKILL.md']]) {
+    const text = read(scope)
+    assert.match(text, /Required approval wording/)
+    for (const item of ['exact instance', 'version pair', 'routine commands', 'ambient developer mounts', 'local/dev non-production', 'files this run will write']) {
+      assert.ok(text.includes(item), item)
+    }
+    assert.match(text, /not chained with/)
+    assert.match(text, /status helper, until this approval/)
+    assert.match(text, /`assess_tools\.mjs next-steps` status helper/)
+    assert.match(read(hop), /Required approval wording/)
+    assert.match(read(assess), /Required approval\s+wording/)
+  }
+})

@@ -689,7 +689,8 @@ test('canonical and generated research/edit/execute grants are separated', () =>
   assert.ok(settings.permissions.allow.includes('Bash(vendor/bin/phpunit *)'));
   assert.ok(settings.permissions.allow.every(rule =>
     !['Bash', 'Bash(*)', 'Bash(bin/magento *)'].includes(rule)));
-  assert.ok(!settings.permissions.allow.some(rule => /composer|setup:upgrade|setup:install|crypt:|encryption:/.test(rule)));
+  assert.ok(!settings.permissions.allow.some(rule => /composer|setup:upgrade|setup:install|crypt:|encryption:/.test(rule.replace('.claude/scripts/composer_probe.py', ''))))
+  assert.ok(settings.permissions.allow.includes('Bash(python3 .claude/scripts/composer_probe.py *)'));
   assert.ok(settings.permissions.ask.includes('Bash(composer *)'));
   for (const rule of ['Bash(docker ps *)', 'Bash(warden shell -- vendor/bin/phpcs *)',
     'Bash(docker exec bin/magento upgrade:check *)', 'Bash(python3 .claude/scripts/normalize_uct.py *)']) {

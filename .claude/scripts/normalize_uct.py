@@ -114,6 +114,19 @@ def uct3_relative(root, name):
     return name
 
 
+# Fixed rejection messages -> specific quarantine reasons. Every reason is still a counted
+# human-review blocker; only the diagnosis is clearer. Unmapped errors keep the generic reason.
+UCT3_REASONS = {
+    "file outside project root": "path-outside-project-root",
+    "invalid file name": "path-outside-project-root",
+    "unsupported level or validation type": "unsupported-level-or-validation-type",
+    "unsupported code": "unsupported-code",
+    "invalid positive line number": "invalid-line-number",
+    "invalid diagnostic": "message-does-not-match-template",
+    "unrecognized diagnostic": "message-does-not-match-template",
+}
+
+
 def escaped(value):
     return (json.dumps(value, ensure_ascii=True, indent=2)
             .replace("<", "\\u003c").replace(">", "\\u003e")
@@ -421,8 +434,10 @@ def normalize_uct3(report, root, target_version=None):
                 "code": str(row["code"]), "type": UCT3_TYPE,
                 "symbol": match[1], "severity": severity,
             })
-        except (ValueError, OSError, RecursionError):
-            reject(row, "invalid-path-line-or-diagnostic", severity if severity in ("error", "warning") else "unknown")
+        except (ValueError, OSError, RecursionError) as error:
+            reason = UCT3_REASONS.get(str(error)) if isinstance(error, ValueError) else None
+            reject(row, reason or "invalid-path-line-or-diagnostic",
+                   severity if severity in ("error", "warning") else "unknown")
     stats_target = stats.get("targetVersion")
     target = target_version if target_version is not None else stats_target
     if target_version is not None and stats_target is not None and stats_target != target_version:
