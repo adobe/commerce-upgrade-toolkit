@@ -28,8 +28,7 @@ SPDX-License-Identifier: Apache-2.0
 // Exit codes: 0 = ok, 1 = validation errors or unreadable input, 2 = bad usage.
 
 import { readFileSync, statSync, lstatSync, realpathSync, readdirSync, existsSync } from 'node:fs'
-import { join, sep, basename, resolve } from 'node:path'
-import { homedir } from 'node:os'
+import { join, sep, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const MAX_BYTES = 64 * 1024 * 1024
@@ -147,7 +146,7 @@ export function uctPrerequisite({ inProjectExitCode = null, composerExitCode = n
     : installationOutcome === 'declined' ? 'declined'
     : ['failed', 'completed'].includes(installationOutcome) ? 'failed' : 'missing'
   const reasons = {
-    missing: 'No working UCT verified; offer the human-run installation procedure',
+    missing: 'No working UCT verified; offer the approved project-local UCT installation',
     'execution-failed': 'UCT verification could not execute successfully; repair the PHP/environment/access failure before retrying, not an assumed missing installation',
     declined: 'Human-run UCT installation declined; UCT compatibility is Not assessed',
     failed: 'Human-run UCT installation or post-install verification failed; UCT compatibility is Not assessed'
@@ -659,7 +658,7 @@ function stateField(text, name) {
  * actions. It never runs commands, probes containers or reads credentials; "todo" items are
  * proposals for the user or the approved workflow, not permission to execute anything.
  */
-export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
+export function nextSteps(projectDir, { agent } = {}) {
   const root = resolve(projectDir)
   const detected = agent || Object.keys(FLAVOURS).find((name) =>
     safeFile(join(root, FLAVOURS[name], 'context', '.ccua-version')) !== null)
@@ -716,9 +715,7 @@ export function nextSteps(projectDir, { agent, home = homedir() } = {}) {
   let uct = null
   try { uct = prereq ? uctPrerequisite(JSON.parse(prereq)) : null } catch { /* invalid record */ }
   let hostUct = false
-  for (const dir of ['.aio-ccua', '.claude']) {
-    try { hostUct = hostUct || lstatSync(join(home, dir, 'tools', 'uct-standalone', basename(root), 'bin', 'uct')).isFile() } catch { /* not installed */ }
-  }
+  try { hostUct = lstatSync(join(root, 'var', 'ccua', 'uct-standalone', 'bin', 'uct')).isFile() } catch { /* not installed */ }
   if (uct?.scanAllowed) add('uct', 'done', `UCT verified (${uct.mode})`, null)
   else if (hostUct) add('uct', 'todo', 'UCT found for the external PHP 8.4 runner; verify it',
     'The workflow runs: python3 ' + base + '/scripts/uct_runner.py -- --version (needs the ccua-uct-runner:php8.4 Docker image).',

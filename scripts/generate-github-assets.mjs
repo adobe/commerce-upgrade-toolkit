@@ -123,10 +123,6 @@ function convertToolsList (toolsStr = '', agentName = '') {
 
 function portClaudePaths (text) {
   text = text.replace(/--agent claude-code/g, '--agent github-copilot')
-  // ~/.claude/tools/... is Claude Code's user-home tool cache — not a project-local .claude/
-  // path, so the generic .claude/ -> .github/ rule below would be misleading (there's no
-  // home-level .github convention). Point it at a neutral, agent-independent cache dir instead.
-  text = text.replace(/~\/\.claude\/tools\//g, '~/.aio-ccua/tools/')
   // .claude/settings.json's permissions.allow/deny has no Copilot equivalent — the closest
   // thing is the notes file the generator writes documenting the gap.
   text = text.replace(/\.claude\/settings\.json/g, '.github/copilot-settings-notes.md')

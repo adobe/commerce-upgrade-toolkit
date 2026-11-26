@@ -76,8 +76,8 @@ Each section writes one object into the assessment data (Section 5). Every table
 
 ### 3.2 Adobe Commerce (UCT) compatibility — single scan with current-version issues ignored
 
-- Apply `uct-install`'s **Assessment prerequisite** first. Installation is human-run;
-  cached modes must be reverified live. If UCT is unavailable and an incomplete assessment
+- Apply `uct-install`'s **Assessment prerequisite** first. Only the approved `uct-install` Step 3 project-local
+  standalone install may be agent-run; cached modes must be reverified live. If UCT is unavailable and an incomplete assessment
   was explicitly chosen, skip the scan and differential computation: mark **Not assessed**
   with null run/count evidence, a stated reason and follow-up in `gaps`.
 - Preferred (`scanMode: ignore-current-flag`): run UCT **once** with

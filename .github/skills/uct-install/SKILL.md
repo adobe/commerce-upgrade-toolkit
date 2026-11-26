@@ -1,22 +1,27 @@
 ---
 name: uct-install
-description: "Checks and invokes an already-installed Upgrade Compatibility Tool (UCT), and provides a human-run installation procedure when it is unavailable. `/upgrade-assess` and `/upgrade-hop <version>` apply the prerequisite below before scan-dep..."
+description: "Checks and invokes an already-installed Upgrade Compatibility Tool (UCT), and provides an approved, project-local installation procedure when it is unavailable. `/upgrade-assess` and `/upgrade-hop <version>` apply the prerequisite below ..."
 ---
 
 # Skill: uct-install
 
 Checks and invokes an already-installed Upgrade Compatibility Tool (UCT), and provides
-a human-run installation procedure when it is unavailable. `/upgrade-assess` and
+an approved, project-local installation procedure when it is unavailable. `/upgrade-assess` and
 `/upgrade-hop <version>` apply the prerequisite below before scan-dependent reporting.
 The no-argument `/upgrade-hop` roadmap does not require UCT.
 
 ## Execution ownership (all steps)
 
 The approved orchestrator automatically runs authorized probe, capture, scan and normalization
-within the live-approved routine scope in local/dev non-production. Dependency installation,
-reinstallation or fallback Composer mutations are human-run outside the assessment:
-the agent never installs or retries dependencies in these workflows. If approved scan
-execution is unavailable, the human runs the exact proposed scan commands.
+within the live-approved routine scope in local/dev non-production. The one installation the
+agent may run is the **standalone UCT install in Step 3**, into the project's
+`var/ccua/uct-standalone` only, after the user explicitly approves it in the live
+"install UCT into the project" choice (shown with the exact commands, working directory and
+effects). It never auto-retries. Every other dependency change (in-project `composer require`
+in Step 2, reinstallation or repair of the project's own dependencies, any other Composer
+mutation) stays human-run. If approved scan
+or install execution is unavailable, the human runs
+the exact proposed commands.
 Research agents interpret non-secret results only. State diffs need separate approval.
 Cached paths/modes are untrusted, not execution authority.
 Documentation URL failures are separate from UCT prerequisites. A documentation 404 does
@@ -39,12 +44,10 @@ when they have not run. Never fabricate a scan result or waive the checks below.
      example `Your Composer dependencies require a PHP version ">= 8.4.0"`):
      `python3 .github/scripts/uct_runner.py -- --version`
      (Copilot: `.github/scripts/uct_runner.py`). With no options the helper uses the image
-     `ccua-uct-runner:php8.4` and the HOST directory
-     `~/.aio-ccua/tools/uct-standalone/{projectDirectoryName}` (the helper also checks the other
-     agent flavour's tools folder and uses whichever contains `bin/uct`) for every Docker type (not the
-     container-only `var/ccua/uct-standalone`, which the host cannot see). Pass `--image` /
-     `--uct-path` only for a different, user-confirmed location; if the default is missing, ask
-     the user once for the host directory containing `bin/uct`, never search the home directory.
+     `ccua-uct-runner:php8.4` and the project-local directory `var/ccua/uct-standalone`
+     (project-root-relative, bind-mounted so the host sees it) for every Docker type. Pass `--image` /
+     `--uct-path` only for a different, user-confirmed location; if the default is missing, offer
+     the Step 3 install into the project, never search the home directory.
      Record its exit code as `externalRunnerExitCode`.
      Probe it only after the in-container probes fail with a PHP-version platform error.
    Stop probing once a working executable is verified; never suggest reinstallation solely
@@ -65,15 +68,19 @@ when they have not run. Never fabricate a scan result or waive the checks below.
 3. If `scanAllowed` is true, use the verified mode for approved capture and normalization
    in Step 5. Recheck cached install modes live; never silently reinstall a stale tool.
 4. If unavailable, use a structured single-choice prompt:
-   **"UCT is required for a completed compatibility assessment. Choose: manually
-   install/setup UCT, continue with an explicitly incomplete report, or stop."**
+   **"UCT is required for a completed compatibility assessment. Choose: install UCT into the
+   project (the agent runs the Step 3 standalone install), continue with an explicitly
+   incomplete report, or stop."**
    For execution failures, show the failure and repair instructions, not an installation
-   recommendation; manual setup may mean repairing the environment, not reinstalling UCT.
-   Show Steps 2/3 as human-run instructions, including working directory, environment and
-   possible Composer effects. Never run Composer, chmod, directory write probes or installs
-   for the user. No credentials or `auth.json` content may be read, requested or copied.
-5. If the user installs, wait for completion and re-run the same approved help/version
-   probes. Set `installationOutcome: completed` only to describe their attempt;
+   recommendation; setup may mean repairing the environment, not reinstalling UCT.
+   Show the exact Step 3 commands (including the `--ignore-platform-req=php` variant when the
+   project's PHP is below 8.4), working directory, environment and Composer effects with
+   the choice. Choosing "install" is the approval for exactly those commands and nothing else.
+   The in-project `composer require` (Step 2) is shown only as a human-run option. No
+   credentials or `auth.json` content may be read, requested or copied; Composer uses the
+   ambient credentials already configured for the environment.
+5. After an approved Step 3 install (or a human install), re-run the same approved
+   help/version probes. Set `installationOutcome: completed` only to describe the attempt;
    failed post-install verification still classifies as `failed`, not `available`.
    Surface failed installation/verification without automatic retry.
 6. If declined or failed, ask whether to continue with an incomplete report or stop.
@@ -156,17 +163,18 @@ Check the reported exit code, then verify tooling live:
 
 ## Step 3: Standalone install (fallback)
 
-Human-run after a confirmed dependency-resolution conflict, as a developer-selected
-isolated installation, or when a cached standalone install needs repair.
+Agent-run, after the user's explicit approval (the "install UCT into the project" choice in the
+prerequisite), after a confirmed dependency-resolution conflict, as a developer-selected isolated
+installation, or when a cached standalone install needs repair.
 
 Resolve `{uctPath}`:
-- `dockerType: plain`: `~/.aio-ccua/tools/uct-standalone/{projectSlug}`, where `projectSlug` is
-  the project's directory basename.
-- `dockerType: warden | markshust | custom`: `var/ccua/uct-standalone`, project-root-relative.
-  Magento's own `var/` directory is always present, always gitignored, and — for Warden and
-  markshust specifically — always bind-mounted from the host into the container (that's what
-  makes local code edits visible live; the same mount makes this path durable). Prefer this
-  over a container-local path: `/tmp/uct-standalone` does not survive a container recreate
+- All Docker types: `var/ccua/uct-standalone`, project-root-relative, so UCT is installed inside
+  the project where the toolkit is set up and agents can always detect it. Never install UCT
+  into the machine's home directory (`~/.github/tools/...`): the agent workflow cannot reliably
+  detect it from there. Magento's own `var/` directory is always present, always gitignored and,
+  for Warden and markshust, bind-mounted from the host into the container (that's what makes
+  local code edits visible live; the same mount makes this path durable). Prefer this over a
+  container-local path: `/tmp/uct-standalone` does not survive a container recreate
   (`warden env down/up`, `--build`, or any infra-floor bump in Step 3c of
   `/upgrade-hop-execute`), which previously forced a silent reinstall after every infra bump.
   Only fall back to `/tmp/uct-standalone` if `var/` turns out not to be writable/mounted (a
@@ -182,7 +190,9 @@ Idempotency check first — skip reinstalling if the tool is already present and
 {containerPrefix} php {uctPath}/bin/uct --version
 ```
 
-If that fails, show the human this installation procedure; do not execute it in assessment:
+If that fails and the user approved the install, run exactly these two commands from the project
+root, with `{uctPath}` fixed to `var/ccua/uct-standalone`. Refuse any other destination, and show
+the exact commands first if approval was not yet given:
 
 ```bash
 {containerPrefix} composer create-project magento/upgrade-compatibility-tool {uctPath} --repository https://repo.magento.com --no-interaction
@@ -196,14 +206,32 @@ from the target project's `composer.json`, so the conflict never arises. It reus
 no separate credential setup is needed, since the install runs in the same container/host as
 the project's own composer.
 
+**Project PHP below 8.4** (the in-container probe reported a PHP platform error such as
+`Your Composer dependencies require a PHP version ">= 8.4.0"`, or the project's PHP is known to be
+older): UCT only needs PHP 8.4 when it runs, and the Step 3b runner supplies that. Use the same
+command with exactly one extra flag, `--ignore-platform-req=php`, and nothing else:
+
+```bash
+{containerPrefix} composer create-project magento/upgrade-compatibility-tool {uctPath} --repository https://repo.magento.com --no-interaction --ignore-platform-req=php
+```
+
+The install is still agent-run, after the same approval, into the same `{uctPath}`. Verify it
+with the external runner (`uct_runner.py -- --version`, Step 3b), not with the container's PHP;
+record `uctInstallMode: external-runner`.
+
+Do not read, print or copy `auth.json` or `COMPOSER_HOME` contents, add any other Composer flags,
+or run anything else (no `composer require`, no writes outside `{uctPath}`). Return only the exit code
+and the relevant non-secret error line.
+
 If `composer create-project` itself fails:
 - Auth failure (401/403/"could not authenticate"): stop — "⚠️ Standalone UCT install failed
   to authenticate against repo.magento.com. Check `auth.json` credentials before retrying."
 - Any other failure: stop — "⚠️ Standalone UCT install failed for a reason other than the
   known dependency conflict: {relevant error line}. Manual investigation required — do not
-  proceed without a working UCT install or an explicit decision to skip the scan."
+  proceed without a working UCT install or an explicit decision to skip the scan." Never
+  auto-retry; record `installationOutcome: failed`.
 
-After the human reports success, re-run the version probe. Only after live verification
+After the install succeeds, re-run the version probe. Only after live verification
 may the approved orchestrator record `uctInstallMode: standalone-fallback` and the reviewed
 `uctStandalonePath` in `context/upgrade-state.md`.
 
@@ -212,17 +240,17 @@ may the approved orchestrator record `uctInstallMode: standalone-fallback` and t
 UCT 3.x requires PHP 8.4+. A project on PHP 8.1 (for example 2.4.4 on Warden) cannot run it in
 its own container, and `--ignore-current-version-compatibility-issues` does not change that: the
 requirement is UCT's own Composer platform check. UCT only reads source, so it can run in a
-separate container while the project keeps its PHP. The human prepares this once, outside the
-assessment (no project credentials are involved when UCT already exists in the project
-container; otherwise installing it needs the human's own Composer keys):
+separate container while the project keeps its PHP. The human builds the runner image once,
+outside the assessment (step 1 below). UCT itself is installed into the project by the agent per
+Step 3 after approval (step 2), using the environment's ambient Composer credentials:
 
 ```bash
 # 1. Runner image: PHP 8.4 plus Node (UCT's JavaScript/eslint checks need node)
 printf 'FROM node:22-slim AS node\nFROM php:8.4-cli\nCOPY --from=node /usr/local/bin/node /usr/local/bin/node\n' \
   | docker build -t ccua-uct-runner:php8.4 -
-# 2. UCT on the host, outside the project and outside any credential directory, e.g.
-#    ~/.aio-ccua/tools/uct-standalone/{projectSlug}  (copy an existing standalone install with
-#    `docker cp {container}:{project}/var/ccua/uct-standalone <dest>`, or install it per Step 3)
+# 2. UCT inside the project, at {project}/var/ccua/uct-standalone (install it per Step 3; when
+#    it only exists in the container, copy it with
+#    `docker cp {container}:{project}/var/ccua/uct-standalone {project}/var/ccua/uct-standalone`)
 ```
 
 `uct_runner.py` is the only agent-run entry point. It builds a fixed `docker run` with

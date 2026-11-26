@@ -176,8 +176,9 @@ and supported normalization.** `/upgrade-assess` requires both baseline and targ
 A successful installation or version probe alone does not complete an assessment.
 
 The shared prerequisite checks Magento, Composer and reviewed standalone executables before
-offering setup. Installation and dependency repair are human-run outside the assessment;
-the agent re-probes afterward. Missing tools, execution failures and unsupported normalization
+offering setup. If UCT is missing, the agent can install it into the project (`var/ccua/uct-standalone`)
+after you explicitly approve the exact commands; in-project Composer changes and dependency repair
+stay human-run, and the agent re-probes afterward. Missing tools, execution failures and unsupported normalization
 require different recovery actions, not automatic reinstallation.
 
 If UCT evidence is unavailable, explicitly choose **manual setup**, **continue incomplete**,
